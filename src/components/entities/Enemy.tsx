@@ -4,7 +4,7 @@ import { useStore } from '../../store/useStore';
 import { 
     EnemyHelicopterModel, EnemyDroneModel, EnemyTankModel,
     EnemyArmoredCarModel, EnemyMissileTruckModel, EnemyJeepModel,
-    EnemyGunshipModel, EnemyScoutHeliModel
+    EnemyGunshipModel, EnemyScoutHeliModel, EnemyBlackSharkModel
 } from '../models/EnemyModels';
 import * as THREE from 'three';
 import { GAME_CONSTANTS } from '../../constants';
@@ -21,7 +21,7 @@ export interface EnemyData {
   targetY: number;
   baseY: number;
   timeOffset: number;
-  type: 'helicopter' | 'drone' | 'tank' | 'armored_car' | 'missile_truck' | 'jeep' | 'gunship' | 'scout';
+  type: 'helicopter' | 'drone' | 'tank' | 'armored_car' | 'missile_truck' | 'jeep' | 'gunship' | 'scout' | 'blackshark';
   variant: 'standard' | 'aggressive' | 'sniper';
 }
 
@@ -98,9 +98,15 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             }
             
             e.type = chosenType as any;
+            
+            // Special Spawn Overrides based on Score
+            if (state.score >= 1000 && Math.random() > 0.7) {
+                e.type = 'blackshark';
+            }
+
             const isGround = isGroundEnemy(e.type);
             
-            e.health = GAME_CONSTANTS.ENEMY.HEALTH * (isGround ? 2.5 : 1.0) * (e.type === 'tank' ? 3.0 : 1.0) * (e.type === 'gunship' ? 4.0 : 1.0) * difficulty;
+            e.health = GAME_CONSTANTS.ENEMY.HEALTH * (isGround ? 2.5 : 1.0) * (e.type === 'tank' ? 3.0 : 1.0) * (e.type === 'gunship' ? 4.0 : 1.0) * (e.type === 'blackshark' ? 5.0 : 1.0) * difficulty;
             e.state = 'approach';
             e.stateTimer = 0;
             e.fireTimer = 0;
@@ -134,7 +140,7 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
         
         if (e.state === 'approach') {
             const speedMult = e.variant === 'aggressive' ? 1.2 : 1.0;
-            const baseSpeed = isGroundEnemy(e.type) ? (e.type === 'tank' ? 0.6 : (e.type === 'armored_car' ? 1.4 : 1.0)) : (e.type === 'scout' ? 2.5 : 1.5);
+            const baseSpeed = isGroundEnemy(e.type) ? (e.type === 'tank' ? 0.6 : (e.type === 'armored_car' ? 1.4 : 1.0)) : (e.type === 'scout' ? 2.5 : (e.type === 'blackshark' ? 1.8 : 1.5));
             e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * speedMult * baseSpeed; 
             
             let approachDist = e.variant === 'sniper' ? 35 : (e.variant === 'aggressive' ? 15 : 25);
@@ -239,7 +245,7 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
         e.fireTimer += delta;
         
         const fireRateMult = e.variant === 'aggressive' ? 0.7 : (e.variant === 'sniper' ? 1.5 : 1.0);
-        const baseFireRate = isGroundEnemy(e.type) ? (e.type === 'tank' ? 2.5 : e.type === 'missile_truck' ? 3.0 : e.type === 'armored_car' ? 0.8 : 1.5) : (e.type === 'gunship' ? 0.8 : e.type === 'scout' ? 0.5 : 1.5);
+        const baseFireRate = isGroundEnemy(e.type) ? (e.type === 'tank' ? 2.5 : e.type === 'missile_truck' ? 3.0 : e.type === 'armored_car' ? 0.8 : 1.5) : (e.type === 'gunship' ? 0.8 : e.type === 'scout' ? 0.5 : e.type === 'blackshark' ? 0.4 : 1.5);
         const currentFireRate = (baseFireRate * fireRateMult) / Math.sqrt(difficulty);
 
         // Only fire if facing player or ground enemy
@@ -379,6 +385,8 @@ function EnemyInstance({ enemy }: { enemy: any }) {
         <EnemyGunshipModel rotation={[0, -Math.PI / 2, 0]} />
       ) : enemy.type === 'scout' ? (
         <EnemyScoutHeliModel rotation={[0, -Math.PI / 2, 0]} />
+      ) : enemy.type === 'blackshark' ? (
+        <EnemyBlackSharkModel rotation={[0, -Math.PI / 2, 0]} />
       ) : (
         <EnemyHelicopterModel rotation={[0, -Math.PI / 2, 0]} />
       )}
