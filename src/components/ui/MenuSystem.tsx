@@ -23,6 +23,24 @@ export default function MenuSystem() {
     return () => window.removeEventListener('keydown', handleEsc);
   }, [gameState, togglePause]);
 
+  // Handle Music Themes based on Game State
+  React.useEffect(() => {
+    if (gameState === 'menu' || gameState === 'hangar' || gameState === 'loadout' || gameState === 'settings') {
+      audioManager.playMenuMusic();
+    } else if (gameState === 'playing' && !paused) {
+      audioManager.playGameplayMusic();
+    } else if (gameState === 'playing' && paused) {
+      // Potentially lower music volume or pause, but let's keep it playing at lower gain
+      // musicManager handled by audioManager
+    } else if (gameState === 'gameover' || gameState === 'victory') {
+      // Keep playing current or fade out
+    }
+    
+    return () => {
+      // Cleanup if needed
+    };
+  }, [gameState, paused]);
+
   const VICTORY_TITLES = ["MISSION COMPLETE", "TARGET ELIMINATED", "OPERATION SUCCESSFUL", "AREA SECURED"];
   const VICTORY_SUBTITLES = ["Enemy forces neutralized.", "Mission objectives completed successfully.", "Combat zone secured."];
 

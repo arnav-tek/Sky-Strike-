@@ -1,3 +1,5 @@
+import { musicManager } from './MusicManager';
+
 class AudioManager {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
@@ -13,7 +15,28 @@ class AudioManager {
     this.masterGain = this.ctx.createGain();
     this.masterGain.connect(this.ctx.destination);
     this.masterGain.gain.value = 0.4; // Default volume
+    
+    musicManager.init(this.ctx);
     this.initialized = true;
+  }
+
+  playMenuMusic() {
+    if (!this.initialized) this.init();
+    musicManager.setTheme('menu');
+  }
+
+  playGameplayMusic() {
+    if (!this.initialized) this.init();
+    musicManager.setTheme('gameplay');
+  }
+
+  playBossMusic() {
+    if (!this.initialized) this.init();
+    musicManager.setTheme('boss');
+  }
+
+  stopMusic() {
+    musicManager.stop();
   }
 
   // Helper to create a noise buffer for explosions

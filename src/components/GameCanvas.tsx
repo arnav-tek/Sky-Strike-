@@ -17,7 +17,7 @@ export default function GameCanvas() {
     lifetime: 0
   })));
 
-  const [enemies] = React.useState(() => Array.from({ length: 20 }, () => ({
+  const [enemies] = React.useState(() => Array.from({ length: 40 }, () => ({
     active: false,
     position: new THREE.Vector3(),
     velocity: new THREE.Vector3(),

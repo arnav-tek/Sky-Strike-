@@ -9,6 +9,7 @@ import {
 import * as THREE from 'three';
 import { GAME_CONSTANTS } from '../../constants';
 import { spawnEffect } from './EffectsManager';
+import { audioManager } from '../../audio/AudioManager';
 
 export interface EnemyData {
   active: boolean;
@@ -30,15 +31,15 @@ const isGroundEnemy = (type: string) => ['tank', 'armored_car', 'missile_truck',
 const WAVE_CONFIG: Record<string, { spawnRate: number, composition: Record<string, number> }> = {
     buildup: {
         spawnRate: GAME_CONSTANTS.ENEMY.SPAWN_RATE * 0.8,
-        composition: { jeep: 0.3, drone: 0.3, scout: 0.2, helicopter: 0.2 }
+        composition: { jeep: 0.4, armored_car: 0.1, drone: 0.2, scout: 0.2, helicopter: 0.1 }
     },
     tension: {
-        spawnRate: GAME_CONSTANTS.ENEMY.SPAWN_RATE * 0.5,
-        composition: { armored_car: 0.3, helicopter: 0.2, drone: 0.2, tank: 0.2, missile_truck: 0.1 }
+        spawnRate: GAME_CONSTANTS.ENEMY.SPAWN_RATE * 0.7,
+        composition: { armored_car: 0.2, helicopter: 0.3, drone: 0.2, tank: 0.1, missile_truck: 0.2 }
     },
     climax: {
-        spawnRate: GAME_CONSTANTS.ENEMY.SPAWN_RATE * 0.35,
-        composition: { tank: 0.3, gunship: 0.3, missile_truck: 0.2, armored_car: 0.2 }
+        spawnRate: GAME_CONSTANTS.ENEMY.SPAWN_RATE * 0.5,
+        composition: { tank: 0.2, gunship: 0.3, missile_truck: 0.1, armored_car: 0.1, helicopter: 0.3 }
     },
     release: {
         spawnRate: 999, // no spawns
@@ -47,107 +48,103 @@ const WAVE_CONFIG: Record<string, { spawnRate: number, composition: Record<strin
 };
 
 export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[], enemyBullets: any[], effects: any[] }) {
+  const [spawnCount, setSpawnCount] = useState(0); // Force re-render on spawn to swap models
   const spawnTimer = useRef(0);
   const waveTimer = useRef(0);
   const totalTimer = useRef(0);
   const wavePhase = useRef<'buildup' | 'tension' | 'climax' | 'release'>('buildup');
 
-  useFrame((_, delta) => {
-    const state = useStore.getState();
-    if (state.gameOver || state.hitStop > 0 || state.gameState === 'gameover' || state.gameState !== 'playing' || state.paused) return;
+  useFrame((state, delta) => {
+    const gameState = useStore.getState().gameState;
+    const playerPos = useStore.getState().playerPos;
+    if (gameState !== 'playing') return;
 
-    const playerPos = state.playerPos;
-
-    waveTimer.current += delta;
     spawnTimer.current += delta;
+    waveTimer.current += delta;
     totalTimer.current += delta;
 
-    const difficulty = 1.0 + Math.floor(totalTimer.current / 60) * 0.5; // Increases by 50% every minute
-
-    // Wave Logic
-    if (waveTimer.current < 20) {
-        wavePhase.current = 'buildup';
-    } else if (waveTimer.current < 40) {
-        wavePhase.current = 'tension';
-    } else if (waveTimer.current < 55) {
-        wavePhase.current = 'climax';
-    } else if (waveTimer.current < 60) {
-        wavePhase.current = 'release';
-    } else {
-        waveTimer.current = 0; // Loop waves
+    // Phase management
+    if (waveTimer.current > 20) {
+        waveTimer.current = 0;
+        if (wavePhase.current === 'buildup') wavePhase.current = 'tension';
+        else if (wavePhase.current === 'tension') wavePhase.current = 'climax';
+        else if (wavePhase.current === 'climax') wavePhase.current = 'release';
+        else if (wavePhase.current === 'release') wavePhase.current = 'buildup';
     }
 
-    const { currentPhase } = { currentPhase: wavePhase.current };
-    const waveParams = WAVE_CONFIG[currentPhase];
+    const difficulty = 1.0 + Math.floor(totalTimer.current / 60) * 0.5;
+    const waveParams = WAVE_CONFIG[wavePhase.current];
     
     if (spawnTimer.current > waveParams.spawnRate / difficulty) {
         spawnTimer.current = 0;
         const e = enemies.find(e => !e.active) as EnemyData | undefined;
         if (e) {
-            e.active = true;
-            
             const rand = Math.random();
-            let chosenType = 'drone';
             let cumulativeProb = 0;
+            let chosenType = 'helicopter';
+            const activeGroundCount = enemies.filter(en => en.active && isGroundEnemy(en.type)).length;
+            
             for (const [type, prob] of Object.entries(waveParams.composition)) {
                 cumulativeProb += prob;
                 if (rand <= cumulativeProb) {
                     chosenType = type;
+                    // Prevent too many ground enemies
+                    if (isGroundEnemy(chosenType) && activeGroundCount > 6) {
+                        chosenType = 'helicopter';
+                    }
                     break;
                 }
             }
-            
+
             e.type = chosenType as any;
             
-            // Special Spawn Overrides based on Score
-            if (state.score >= 1000 && Math.random() > 0.7) {
+            // Special Spawn Overrides
+            if (useStore.getState().score >= 2000 && Math.random() > 0.85) {
                 e.type = 'blackshark';
+                audioManager.playBossMusic();
             }
 
             const isGround = isGroundEnemy(e.type);
             
+            e.active = true;
             e.health = GAME_CONSTANTS.ENEMY.HEALTH * (isGround ? 2.5 : 1.0) * (e.type === 'tank' ? 3.0 : 1.0) * (e.type === 'gunship' ? 4.0 : 1.0) * (e.type === 'blackshark' ? 5.0 : 1.0) * difficulty;
             e.state = 'approach';
             e.stateTimer = 0;
             e.fireTimer = 0;
-            
             e.baseY = isGround ? 0.0 : Math.random() * (GAME_CONSTANTS.BOUNDS.Y_MAX - GAME_CONSTANTS.BOUNDS.Y_MIN) + GAME_CONSTANTS.BOUNDS.Y_MIN;
             e.targetY = e.baseY;
             
-            const roadZ = (Math.random() - 0.5) * 10; // Road is 15 units wide, stay within center 10
-            e.position.set(playerPos[0] + 70, e.baseY, isGround ? roadZ : 0);
+            const roadZ = (Math.random() - 0.5) * 10;
+            e.position.set(playerPos[0] + 50, e.baseY, isGround ? roadZ : 0);
             e.velocity.set(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0);
             
             const randVariant = Math.random();
-            if (isGround) {
-                e.variant = randVariant > 0.7 ? 'sniper' : 'standard';
-            } else if (randVariant > 0.8) {
-                e.variant = 'sniper';
-            } else if (randVariant > 0.6) {
-                e.variant = 'aggressive';
-            } else {
-                e.variant = 'standard';
-            }
-            e.timeOffset = Math.random() * Math.PI * 2;
+            e.variant = randVariant > 0.8 ? 'sniper' : (randVariant > 0.6 ? 'aggressive' : 'standard');
+            
+            // Force re-render so EnemyInstance picks up the new type
+            setSpawnCount(c => c + 1);
+            if (isGround) console.log(`GROUND SPAWN: ${e.type} at ${e.position.x}`);
         }
     }
 
+    // Update Enemies
     for (let i = 0; i < enemies.length; i++) {
-        let e = enemies[i] as EnemyData;
+        const e = enemies[i] as EnemyData;
         if (!e.active) continue;
 
         e.stateTimer += delta;
         
+        // AI Logic
+        let approachDist = e.variant === 'aggressive' ? 15 : 25;
+        if (isGroundEnemy(e.type)) {
+            approachDist = e.variant === 'sniper' ? 35 : 20;
+        }
+
         if (e.state === 'approach') {
             const speedMult = e.variant === 'aggressive' ? 1.2 : 1.0;
-            const baseSpeed = isGroundEnemy(e.type) ? (e.type === 'tank' ? 0.6 : (e.type === 'armored_car' ? 1.4 : 1.0)) : (e.type === 'scout' ? 2.5 : (e.type === 'blackshark' ? 1.8 : 1.5));
+            const baseSpeed = isGroundEnemy(e.type) ? (e.type === 'tank' ? 0.8 : (e.type === 'armored_car' ? 1.6 : 1.2)) : (e.type === 'scout' ? 2.5 : (e.type === 'blackshark' ? 1.8 : 1.5));
             e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * speedMult * baseSpeed; 
             
-            let approachDist = e.variant === 'sniper' ? 35 : (e.variant === 'aggressive' ? 15 : 25);
-            if (isGroundEnemy(e.type)) {
-                approachDist = e.variant === 'sniper' ? 25 : 18;
-            }
-
             if (e.position.x - playerPos[0] < approachDist) {
                 if (!isGroundEnemy(e.type) && (e.type === 'drone' || e.type === 'scout') && e.variant === 'aggressive' && Math.random() > 0.3) {
                     e.state = 'kamikaze';
@@ -163,9 +160,8 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             const driftSpeed = isGroundEnemy(e.type) ? 0.5 : (e.type === 'scout' ? 4 : 2);
             
             if (isGroundEnemy(e.type)) {
-                // Ground vehicles drive steadily without sliding
-                const attackSpeedMod = e.type === 'tank' ? -0.5 : (e.type === 'armored_car' ? 1.0 : 0);
-                e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 0.2 + attackSpeedMod;
+                const attackSpeedMod = e.type === 'tank' ? 0.2 : (e.type === 'armored_car' ? 1.5 : 0.8);
+                e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * attackSpeedMod;
                 e.targetY = 0.0;
             } else {
                 e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - 1 + Math.sin(e.stateTimer * driftSpeed + e.timeOffset) * driftAmount;
@@ -215,6 +211,7 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             }
         }
 
+        // Apply movement
         if (e.state !== 'kamikaze') {
             if (isGroundEnemy(e.type)) {
                 e.velocity.y = 0;
@@ -225,78 +222,59 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
         }
         
         if (!isGroundEnemy(e.type)) {
-            if (e.position.y > GAME_CONSTANTS.BOUNDS.Y_MAX) {
-                e.position.y = GAME_CONSTANTS.BOUNDS.Y_MAX;
-                if (e.velocity.y > 0) e.velocity.y = 0;
-            }
-            if (e.position.y < GAME_CONSTANTS.BOUNDS.Y_MIN) {
-                e.position.y = GAME_CONSTANTS.BOUNDS.Y_MIN;
-                if (e.velocity.y < 0) e.velocity.y = 0;
-            }
+            if (e.position.y > GAME_CONSTANTS.BOUNDS.Y_MAX) { e.position.y = GAME_CONSTANTS.BOUNDS.Y_MAX; e.velocity.y = 0; }
+            if (e.position.y < GAME_CONSTANTS.BOUNDS.Y_MIN) { e.position.y = GAME_CONSTANTS.BOUNDS.Y_MIN; e.velocity.y = 0; }
         }
 
         e.position.addScaledVector(e.velocity, delta);
-        if (isGroundEnemy(e.type)) {
-            e.position.y = 0; // Absolute ground lock
-        } else {
-            e.position.z = 0; // Air enemies stay on plane
-        }
+        if (isGroundEnemy(e.type)) e.position.y = 0; else e.position.z = 0;
 
+        // Fire bullets
         e.fireTimer += delta;
-        
         const fireRateMult = e.variant === 'aggressive' ? 0.7 : (e.variant === 'sniper' ? 1.5 : 1.0);
-        const baseFireRate = isGroundEnemy(e.type) ? (e.type === 'tank' ? 2.5 : e.type === 'missile_truck' ? 3.0 : e.type === 'armored_car' ? 0.8 : 1.5) : (e.type === 'gunship' ? 0.8 : e.type === 'scout' ? 0.5 : e.type === 'blackshark' ? 0.4 : 1.5);
+        const baseFireRate = isGroundEnemy(e.type) ? (e.type === 'tank' ? 3.0 : 2.0) : (e.type === 'scout' ? 1.0 : 1.8);
         const currentFireRate = (baseFireRate * fireRateMult) / Math.sqrt(difficulty);
 
-        // Only fire if facing player or ground enemy
-        if (e.fireTimer > currentFireRate && (e.state === 'attack' || e.state === 'defensive') && e.position.x > playerPos[0]) {
+        if (e.fireTimer > currentFireRate && e.state === 'attack' && e.position.x > playerPos[0]) {
             e.fireTimer = 0;
-            const b = enemyBullets.find(eb => !eb.active);
+            const b = enemyBullets.find(bullet => !bullet.active);
             if (b) {
                 b.active = true;
-                const zOffset = Math.random() > 0.5 ? 1.0 : -1.0;
-                
-                let spawnOffset = new THREE.Vector3(-1.5, -0.3, zOffset);
-                if (isGroundEnemy(e.type)) {
-                    spawnOffset = new THREE.Vector3(-1.0, 1.2, 0);
-                } else if (e.type === 'drone' || e.type === 'scout') {
-                    spawnOffset = new THREE.Vector3(0, -0.3, 0);
-                }
+                // Model-specific bullet spawn offsets (relative to center)
+                let spawnOffset = new THREE.Vector3(0, 0.5, 0);
+                if (e.type === 'tank') spawnOffset.set(-2.2, 0.8, 0);
+                else if (e.type === 'armored_car') spawnOffset.set(-1.8, 0.8, 0);
+                else if (e.type === 'missile_truck') spawnOffset.set(-1.0, 2.0, 0);
+                else if (e.type === 'jeep') spawnOffset.set(-1.5, 0.8, 0);
+                else if (e.type === 'helicopter' || e.type === 'blackshark') spawnOffset.set(-2.0, -0.2, 0);
+                else if (e.type === 'gunship') spawnOffset.set(-2.5, -0.4, 0);
+                else if (e.type === 'scout') spawnOffset.set(-0.8, -0.1, 0);
+                else if (e.type === 'drone') spawnOffset.set(0, -0.6, 0);
 
                 const spawnPos = e.position.clone().add(spawnOffset);
                 b.position.copy(spawnPos);
                 
                 let targetPos = new THREE.Vector3(playerPos[0] + 5, playerPos[1], 0);
-                
-                // Add inaccuracy based on enemy type
                 if (isGroundEnemy(e.type)) {
-                    if (e.type === 'armored_car') {
-                        targetPos.y += (Math.random() - 0.5) * 4;
-                        targetPos.x += (Math.random() - 0.5) * 4;
-                    }
+                    targetPos.y += (Math.random() - 0.5) * 6; // High vertical spread for ground
+                    targetPos.x += (Math.random() - 0.5) * 8;
                 }
 
-                const dir = targetPos.sub(e.position).normalize();
-                let bulletSpeedMult = e.variant === 'sniper' ? 0.8 : (e.type === 'scout' ? 0.6 : 0.4);
-                
-                // Tanks have faster projectiles
-                if (e.type === 'tank') bulletSpeedMult = 1.0;
-                if (e.type === 'missile_truck') bulletSpeedMult = 0.5;
-
+                const dir = targetPos.sub(spawnPos).normalize();
+                let bulletSpeedMult = e.type === 'tank' ? 1.2 : 0.6;
                 b.velocity.copy(dir).multiplyScalar(GAME_CONSTANTS.BULLET.SPEED * bulletSpeedMult).add(new THREE.Vector3(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0));
-                b.lifetime = GAME_CONSTANTS.BULLET.LIFETIME * (e.type === 'tank' || e.variant === 'sniper' ? 2.5 : 1.5);
+                b.lifetime = GAME_CONSTANTS.BULLET.LIFETIME * 2.0;
                 
-                spawnEffect(effects, spawnPos, 'muzzle', (e.type === 'tank' || e.type === 'gunship' ? 1.0 : 0.5), '#ea580c');
+                spawnEffect(effects, spawnPos, 'muzzle', 0.5, '#ea580c');
             }
         }
         
-        if (e.position.x < playerPos[0] - 40) {
-            e.active = false;
-        }
+        if (e.position.x < playerPos[0] - 40) e.active = false;
     }
     
+    // Update Bullets
     for (let i = 0; i < enemyBullets.length; i++) {
-        let b = enemyBullets[i];
+        const b = enemyBullets[i];
         if (b.active) {
             b.position.addScaledVector(b.velocity, delta);
             b.lifetime -= delta;
@@ -335,30 +313,23 @@ function EnemyInstance({ enemy }: { enemy: any }) {
                   const dx = playerPos[0] - enemy.position.x;
                   const dy = playerPos[1] - enemy.position.y;
                   let targetAngle = Math.atan2(dy, -dx);
-                  // Clamp missile launcher angle
                   targetAngle = Math.max(0, Math.min(Math.PI/2, targetAngle));
                   turretRef.current.rotation.z = THREE.MathUtils.lerp(turretRef.current.rotation.z, targetAngle, 3 * delta);
               }
               
-              // Arcade suspension / bounce based on movement
               const speedRatio = Math.abs(GAME_CONSTANTS.PLAYER.SCROLL_SPEED - enemy.velocity.x) / GAME_CONSTANTS.PLAYER.SCROLL_SPEED;
               const bounceFreq = enemy.type === 'tank' ? 3 : 6;
               const bounceAmp = enemy.type === 'tank' ? 0.015 : 0.03;
               const bounce = Math.sin(enemy.position.x * bounceFreq) * bounceAmp * (speedRatio > 0.1 ? 1 : 0);
               
-              // Apply bounce to Y but keep it extremely subtle to avoid "floating"
-              // We also apply a slight pitch (X) and roll (Z) based on the "terrain" (simulated by noise)
               groupRef.current.position.y = enemy.position.y + Math.max(0, bounce); 
               groupRef.current.rotation.z = bounce * 0.5;
               groupRef.current.rotation.x = Math.cos(enemy.position.x * (bounceFreq * 0.7)) * (bounceAmp * 0.3);
           } else {
-              // Tilt visually based on movement
               const forwardTilt = (GAME_CONSTANTS.PLAYER.SCROLL_SPEED - enemy.velocity.x) * (enemy.type === 'drone' ? 0.08 : 0.05);
               const verticalTilt = enemy.velocity.y * (enemy.type === 'drone' ? 0.04 : 0.02);
-              
               const targetRotZ = THREE.MathUtils.clamp(-forwardTilt + verticalTilt, -0.6, 0.6);
               const targetRotX = THREE.MathUtils.clamp(-enemy.velocity.y * 0.05, -0.5, 0.5);
-
               groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, targetRotZ, 10 * delta);
               groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, targetRotX, 10 * delta);
           }
@@ -372,9 +343,9 @@ function EnemyInstance({ enemy }: { enemy: any }) {
         <pointLight position={[0, 0, 0]} distance={5} intensity={5} color="#ff0000" />
       )}
       {enemy.type === 'drone' ? (
-        <EnemyDroneModel rotation={[0, -Math.PI / 2, 0]} />
+        <EnemyDroneModel rotation={[0, -Math.PI / 2, 0]} scale={1.8} />
       ) : enemy.type === 'tank' ? (
-        <EnemyTankModel ref={turretRef} rotation={[0, Math.PI, 0]} />
+        <EnemyTankModel ref={turretRef} rotation={[0, -Math.PI / 2, 0]} />
       ) : enemy.type === 'armored_car' ? (
         <EnemyArmoredCarModel ref={turretRef} rotation={[0, Math.PI, 0]} />
       ) : enemy.type === 'missile_truck' ? (
@@ -382,9 +353,9 @@ function EnemyInstance({ enemy }: { enemy: any }) {
       ) : enemy.type === 'jeep' ? (
         <EnemyJeepModel rotation={[0, Math.PI, 0]} />
       ) : enemy.type === 'gunship' ? (
-        <EnemyGunshipModel rotation={[0, -Math.PI / 2, 0]} />
+        <EnemyGunshipModel rotation={[0, 0, 0]} />
       ) : enemy.type === 'scout' ? (
-        <EnemyScoutHeliModel rotation={[0, -Math.PI / 2, 0]} />
+        <EnemyScoutHeliModel rotation={[0, 0, 0]} scale={1.5} />
       ) : enemy.type === 'blackshark' ? (
         <EnemyBlackSharkModel rotation={[0, -Math.PI / 2, 0]} />
       ) : (

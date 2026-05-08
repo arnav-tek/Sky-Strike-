@@ -144,7 +144,7 @@ export function EnemyDroneModel(props: any) {
   });
 
   return (
-    <group {...props} scale={[0.4, 0.4, 0.4]}>
+    <group {...props} scale={[0.8, 0.8, 0.8]}>
       {/* Main drone body */}
       <mesh castShadow receiveShadow>
         <cylinderGeometry args={[0.6, 0.4, 0.3, 8]} />
@@ -209,6 +209,11 @@ export const EnemyTankModel = React.forwardRef((props: any, ref: any) => {
   useFrame((state) => {
     const time = state.clock.getElapsedTime();
 
+    // Subtle turret scanning animation (additive to AI aiming on Z)
+    if (ref.current) {
+      ref.current.rotation.y = Math.sin(time * 0.5) * 0.3;
+    }
+    
     // Barrel recoil/vibration
     if (barrelRef.current) {
       barrelRef.current.position.z = Math.sin(time * 2) * 0.02 + 0.8;
@@ -359,13 +364,13 @@ export const EnemyArmoredCarModel = React.forwardRef((props: any, ref: any) => {
   useFrame((_, delta) => {
     if (wheelsRef.current) {
       wheelsRef.current.children.forEach((w) => {
-        w.rotation.y += 8 * delta; // Faster wheels for fast car
+        w.rotation.x += 8 * delta; // Rotate around axle
       });
     }
   });
 
   return (
-    <group {...props} scale={[0.8, 0.8, 0.8]}>
+    <group {...props} scale={[1.2, 1.2, 1.2]}>
       <group position={[0, -0.05, 0]}>
         {/* Compact APC Body */}
         <mesh castShadow receiveShadow position={[0, 0.7, 0]}>
@@ -489,13 +494,13 @@ export const EnemyJeepModel = React.forwardRef((props: any, ref: any) => {
   useFrame((_, delta) => {
     if (wheelsRef.current) {
       wheelsRef.current.children.forEach((w) => {
-        w.rotation.y += 8 * delta;
+        w.rotation.x += 8 * delta;
       });
     }
   });
 
   return (
-    <group {...props} scale={[0.75, 0.75, 0.75]}>
+    <group {...props} scale={[1.1, 1.1, 1.1]}>
       <group position={[0, -0.05, 0]}>
         {/* Scout Jeep Body */}
         <mesh castShadow receiveShadow position={[0, 0.45, 0]}>
@@ -578,7 +583,7 @@ export function EnemyScoutHeliModel(props: any) {
   });
 
   return (
-    <group {...props} scale={[0.3, 0.3, 0.3]}>
+    <group {...props} scale={[0.6, 0.6, 0.6]}>
       {/* Small agile body */}
       <mesh castShadow receiveShadow position={[0, 0, 0]}>
         <sphereGeometry args={[0.6, 8, 8]} />
