@@ -17,8 +17,14 @@ export const GAME_CONSTANTS = {
     LIFETIME: 2.0,
   },
   ENEMY: {
-    SPEED: 5,
-    SPAWN_RATE: 2.0,
-    HEALTH: 100,
+    SPEED: 6,
+    SPAWN_RATE: 1.8,
+    HEALTH: 80,
+    GROUND_Y_OFFSETS: {
+      tank: 0.6,
+      armored_car: 0.7,
+      missile_truck: 0.5,
+      jeep: 0.4,
+    }
   }
 };

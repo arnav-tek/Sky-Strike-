@@ -89,26 +89,164 @@ class AudioManager {
     osc.stop(this.ctx.currentTime + 0.5);
   }
 
-  playExplosion() {
+  playEnemyDeath(type: string) {
+    if (!this.initialized) this.init();
+    switch(type) {
+      case 'drone': case 'jeep': this.playExplosionSmall(); break;
+      case 'helicopter': case 'scout': case 'armored_car': this.playExplosionMedium(); break;
+      case 'tank': case 'gunship': case 'missile_truck': this.playExplosionLarge(); break;
+      case 'blackshark': this.playExplosionBoss(); break;
+      default: this.playExplosionMedium(); break;
+    }
+  }
+
+  playExplosionSmall() {
     if (!this.ctx || !this.masterGain) return;
+    const time = this.ctx.currentTime;
+    
     const noise = this.ctx.createBufferSource();
     noise.buffer = this.createNoiseBuffer();
+    const noiseFilter = this.ctx.createBiquadFilter();
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.value = 1000;
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.3, time);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(this.masterGain);
+    noise.start(time);
+    noise.stop(time + 0.3);
+
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, time);
+    osc.frequency.exponentialRampToValueAtTime(40, time + 0.2);
+    const oscGain = this.ctx.createGain();
+    oscGain.gain.setValueAtTime(0.4, time);
+    oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+    osc.connect(oscGain);
+    oscGain.connect(this.masterGain);
+    osc.start(time);
+    osc.stop(time + 0.2);
+  }
+
+  playExplosionMedium() {
+    if (!this.ctx || !this.masterGain) return;
+    const time = this.ctx.currentTime;
+    const pitchJitter = 1.0 + (Math.random() - 0.5) * 0.1;
     
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = this.createNoiseBuffer();
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(1000, this.ctx.currentTime);
-    filter.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.8);
-    
+    filter.frequency.setValueAtTime(2000, time);
+    filter.frequency.exponentialRampToValueAtTime(100, time + 0.6);
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.8);
-    
+    gain.gain.setValueAtTime(0.5, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.6);
     noise.connect(filter);
     filter.connect(gain);
     gain.connect(this.masterGain);
+    noise.start(time);
+    noise.stop(time + 0.6);
+
+    const osc = this.ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(200 * pitchJitter, time);
+    osc.frequency.exponentialRampToValueAtTime(30, time + 0.5);
+    const oscGain = this.ctx.createGain();
+    oscGain.gain.setValueAtTime(0.6, time);
+    oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+    osc.connect(oscGain);
+    oscGain.connect(this.masterGain);
+    osc.start(time);
+    osc.stop(time + 0.5);
+
+    const fmOsc = this.ctx.createOscillator();
+    fmOsc.type = 'square';
+    fmOsc.frequency.setValueAtTime(300 * pitchJitter, time);
+    fmOsc.frequency.exponentialRampToValueAtTime(50, time + 0.3);
+    const fmGain = this.ctx.createGain();
+    fmGain.gain.setValueAtTime(0.2, time);
+    fmGain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+    fmOsc.connect(fmGain);
+    fmGain.connect(this.masterGain);
+    fmOsc.start(time);
+    fmOsc.stop(time + 0.3);
+  }
+
+  playExplosionLarge() {
+    if (!this.ctx || !this.masterGain) return;
+    const time = this.ctx.currentTime;
+    const pitchJitter = 1.0 + (Math.random() - 0.5) * 0.15;
     
-    noise.start();
-    noise.stop(this.ctx.currentTime + 0.8);
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = this.createNoiseBuffer();
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1500, time);
+    filter.frequency.exponentialRampToValueAtTime(50, time + 1.2);
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.8, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 1.2);
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+    noise.start(time);
+    noise.stop(time + 1.2);
+
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120 * pitchJitter, time);
+    osc.frequency.exponentialRampToValueAtTime(20, time + 1.0);
+    const oscGain = this.ctx.createGain();
+    oscGain.gain.setValueAtTime(1.0, time);
+    oscGain.gain.exponentialRampToValueAtTime(0.01, time + 1.0);
+    osc.connect(oscGain);
+    oscGain.connect(this.masterGain);
+    osc.start(time);
+    osc.stop(time + 1.0);
+
+    const fmOsc = this.ctx.createOscillator();
+    fmOsc.type = 'sawtooth';
+    fmOsc.frequency.setValueAtTime(150 * pitchJitter, time);
+    fmOsc.frequency.exponentialRampToValueAtTime(30, time + 0.6);
+    const fmGain = this.ctx.createGain();
+    fmGain.gain.setValueAtTime(0.4, time);
+    fmGain.gain.exponentialRampToValueAtTime(0.01, time + 0.6);
+    fmOsc.connect(fmGain);
+    fmGain.connect(this.masterGain);
+    fmOsc.start(time);
+    fmOsc.stop(time + 0.6);
+  }
+
+  playExplosionBoss() {
+    if (!this.ctx || !this.masterGain) return;
+    
+    this.playExplosionLarge();
+    setTimeout(() => this.playExplosionLarge(), 200);
+    setTimeout(() => this.playExplosionMedium(), 400);
+    setTimeout(() => this.playExplosionLarge(), 600);
+    setTimeout(() => this.playExplosionMedium(), 800);
+    setTimeout(() => {
+        this.playExplosionLarge();
+        const osc = this.ctx!.createOscillator();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(50, this.ctx!.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(10, this.ctx!.currentTime + 2.0);
+        const oscGain = this.ctx!.createGain();
+        oscGain.gain.setValueAtTime(0.8, this.ctx!.currentTime);
+        oscGain.gain.exponentialRampToValueAtTime(0.01, this.ctx!.currentTime + 2.0);
+        osc.connect(oscGain);
+        oscGain.connect(this.masterGain!);
+        osc.start();
+        osc.stop(this.ctx!.currentTime + 2.0);
+    }, 1200);
+  }
+
+  playExplosion() {
+    this.playExplosionMedium();
   }
 
   playHit() {

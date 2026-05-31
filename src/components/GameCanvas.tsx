@@ -8,8 +8,9 @@ import CollisionManager from './entities/CollisionManager';
 import CameraController from './CameraController';
 import EffectsManager, { useEffects } from './entities/EffectsManager';
 import * as THREE from 'three';
+import { useStore } from '../store/useStore';
 
-export default function GameCanvas() {
+function GameSession() {
   const [bullets] = React.useState(() => Array.from({ length: 50 }, () => ({
     active: false,
     position: new THREE.Vector3(),
@@ -17,7 +18,7 @@ export default function GameCanvas() {
     lifetime: 0
   })));
 
-  const [enemies] = React.useState(() => Array.from({ length: 40 }, () => ({
+  const [enemies] = React.useState(() => Array.from({ length: 50 }, () => ({
     active: false,
     position: new THREE.Vector3(),
     velocity: new THREE.Vector3(),
@@ -29,7 +30,10 @@ export default function GameCanvas() {
     baseY: 0,
     timeOffset: Math.random() * 100,
     type: 'helicopter',
-    variant: 'standard'
+    variant: 'standard',
+    burstCount: 0,
+    shieldActive: false,
+    laneIndex: 0
   })));
 
   const [enemyBullets] = React.useState(() => Array.from({ length: 100 }, () => ({
@@ -49,6 +53,22 @@ export default function GameCanvas() {
   const [effects] = useEffects();
 
   return (
+    <>
+      <Player bullets={bullets} missiles={playerMissiles} effects={effects} />
+      <BulletManager bullets={bullets} />
+      <MissileManager missiles={playerMissiles} />
+      <EnemyManager enemies={enemies} enemyBullets={enemyBullets} effects={effects} />
+      <BulletManager bullets={enemyBullets} />
+      <CollisionManager bullets={bullets} missiles={playerMissiles} enemies={enemies} enemyBullets={enemyBullets} effects={effects} />
+      <EffectsManager effects={effects} />
+    </>
+  );
+}
+
+export default function GameCanvas() {
+  const playSessionId = useStore(state => state.playSessionId);
+
+  return (
     <Canvas shadows camera={{ position: [0, 10, 30], fov: 45 }}>
       <color attach="background" args={["#7dd3fc"]} />
       <fog attach="fog" args={["#7dd3fc", 60, 250]} />
@@ -63,13 +83,11 @@ export default function GameCanvas() {
       />
 
       <Environment />
-      <Player bullets={bullets} missiles={playerMissiles} effects={effects} />
-      <BulletManager bullets={bullets} />
-      <MissileManager missiles={playerMissiles} />
-      <EnemyManager enemies={enemies} enemyBullets={enemyBullets} effects={effects} />
-      <BulletManager bullets={enemyBullets} />
-      <CollisionManager bullets={bullets} missiles={playerMissiles} enemies={enemies} enemyBullets={enemyBullets} effects={effects} />
-      <EffectsManager effects={effects} />
+      
+      {/* GameSession is keyed by playSessionId so all internal states (enemy pools, bullets, effects) 
+          are completely destroyed and recreated from scratch on game reset */}
+      <GameSession key={playSessionId} />
+      
       <CameraController />
     </Canvas>
   );

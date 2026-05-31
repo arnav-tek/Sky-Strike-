@@ -12,3 +12,168 @@ body, html, #root {
   font-family: 'Inter', system-ui, sans-serif;
   user-select: none;
 }
+
+/* ═══════════════════════════════════════════
+   HUD — Custom CSS for gameplay UI elements
+   ═══════════════════════════════════════════ */
+
+/* Health bar clip-path shapes */
+.hud-bar-slant-r {
+  clip-path: polygon(0% 0%, 96% 0%, 100% 100%, 0% 100%);
+}
+.hud-bar-slant-l {
+  clip-path: polygon(4% 0%, 100% 0%, 100% 100%, 0% 100%);
+}
+
+/* Health bar segmented tick marks */
+.hud-bar-ticks {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 4.8%,
+    rgba(0,0,0,0.4) 4.8%,
+    rgba(0,0,0,0.4) 5%
+  );
+}
+
+/* Weapon card angular clip */
+.weapon-card {
+  clip-path: polygon(6px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 6px);
+}
+
+/* Scanline overlay effect for HUD panels */
+.hud-scanlines {
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.06) 2px,
+    rgba(0,0,0,0.06) 4px
+  );
+  pointer-events: none;
+}
+
+/* Glowing border pulse animation */
+@keyframes border-pulse {
+  0%, 100% { border-color: rgba(239, 68, 68, 0.5); }
+  50% { border-color: rgba(239, 68, 68, 1); }
+}
+.border-pulse-red {
+  animation: border-pulse 1s ease-in-out infinite;
+}
+
+/* Critical health vignette */
+@keyframes critical-vignette {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+.critical-vignette {
+  animation: critical-vignette 1.2s ease-in-out infinite;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(220, 38, 38, 0.25) 100%);
+  pointer-events: none;
+}
+
+/* Boss health bar glow */
+@keyframes boss-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.6); }
+}
+.boss-bar-glow {
+  animation: boss-glow 2s ease-in-out infinite;
+}
+
+/* Radar sweep animation */
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.radar-sweep {
+  animation: radar-sweep 3s linear infinite;
+}
+
+/* Combo counter bounce */
+@keyframes combo-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* Text glow for important values */
+.text-glow-emerald {
+  text-shadow: 0 0 12px rgba(16, 185, 129, 0.5), 0 0 4px rgba(16, 185, 129, 0.3);
+}
+.text-glow-red {
+  text-shadow: 0 0 12px rgba(239, 68, 68, 0.5), 0 0 4px rgba(239, 68, 68, 0.3);
+}
+.text-glow-amber {
+  text-shadow: 0 0 12px rgba(245, 158, 11, 0.5), 0 0 4px rgba(245, 158, 11, 0.3);
+}
+.text-glow-sky {
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.5), 0 0 4px rgba(56, 189, 248, 0.3);
+}
+.text-glow-white {
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.3), 0 0 5px rgba(255, 255, 255, 0.15);
+}
+
+/* Corner bracket decorations for panels */
+.corner-brackets::before,
+.corner-brackets::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-color: rgba(16, 185, 129, 0.4);
+  pointer-events: none;
+}
+.corner-brackets::before {
+  top: 0;
+  left: 0;
+  border-top: 1.5px solid;
+  border-left: 1.5px solid;
+}
+.corner-brackets::after {
+  bottom: 0;
+  right: 0;
+  border-bottom: 1.5px solid;
+  border-right: 1.5px solid;
+}
+
+/* Custom scrollbar for menus */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.3);
+  border-radius: 999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.5);
+}
+
+/* Missile indicator pill active glow */
+.missile-pill-active {
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4), inset 0 0 4px rgba(245, 158, 11, 0.1);
+}
+
+/* Level progress bar stripe animation */
+@keyframes progress-stripes {
+  from { background-position: 0 0; }
+  to { background-position: 20px 0; }
+}
+.progress-stripes {
+  background-image: linear-gradient(
+    45deg,
+    rgba(255,255,255,0.08) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.08) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 20px 20px;
+  animation: progress-stripes 0.6s linear infinite;
+}

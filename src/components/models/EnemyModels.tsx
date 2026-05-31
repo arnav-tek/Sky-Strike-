@@ -11,79 +11,108 @@ export function EnemyHelicopterModel(props: any) {
     if (tailRotorRef.current) tailRotorRef.current.rotation.x += 20 * delta;
   });
 
+  // Futuristic Stealth Military Scheme
+  const bodyBase   = "#3f3f46"; // Sleek Navy Zinc-Grey
+  const bodyDark   = "#18181b"; // Dark Stealth Plates
+  const steel      = "#27272a"; // Metal Parts
+  const glowOrange = "#ff4400"; // Glowing HUD / Canopy Glass
+
   return (
     <group {...props} scale={[0.5, 0.5, 0.5]}>
       {/* Sleek Apache-style Fuselage */}
       <mesh castShadow receiveShadow position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.3, 0.35, 2.5, 6]} />
-        <meshStandardMaterial color="#7f1d1d" flatShading />
+        <meshStandardMaterial color={bodyBase} flatShading roughness={0.6} />
+      </mesh>
+
+      {/* Camouflage Panel detail */}
+      <mesh castShadow position={[0, 0.05, -0.2]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.31, 0.36, 1.2, 6]} />
+        <meshStandardMaterial color={bodyDark} flatShading roughness={0.6} />
       </mesh>
 
       {/* Pointy Nose */}
       <mesh castShadow position={[0, -0.1, 1.4]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.01, 0.3, 0.6, 6]} />
-        <meshStandardMaterial color="#450a0a" flatShading />
+        <meshStandardMaterial color={bodyDark} flatShading roughness={0.5} />
       </mesh>
 
-      {/* Tandem Cockpit Canopy */}
+      {/* Tandem Cockpit Canopy with orange HUD glow */}
       <mesh castShadow position={[0, 0.3, 0.8]} rotation={[-0.1, 0, 0]}>
         <boxGeometry args={[0.4, 0.4, 1.2]} />
-        <meshStandardMaterial color="#000000" flatShading metalness={0.8} />
+        <meshStandardMaterial 
+          color={glowOrange} 
+          roughness={0.1} 
+          metalness={0.9} 
+          emissive={glowOrange} 
+          emissiveIntensity={0.6} 
+          flatShading 
+        />
       </mesh>
 
       {/* Tail Boom */}
       <mesh castShadow position={[0, 0.1, -1.8]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.2, 0.1, 1.6, 5]} />
-        <meshStandardMaterial color="#7f1d1d" flatShading />
+        <meshStandardMaterial color={bodyBase} flatShading roughness={0.6} />
       </mesh>
 
       {/* Tail Fin (Vertical) */}
       <mesh castShadow position={[0, 0.4, -2.5]}>
         <boxGeometry args={[0.08, 0.8, 0.5]} />
-        <meshStandardMaterial color="#450a0a" flatShading />
+        <meshStandardMaterial color={bodyDark} flatShading roughness={0.6} />
       </mesh>
 
       {/* Tail Fin (Horizontal) */}
       <mesh castShadow position={[0, 0.1, -2.5]}>
         <boxGeometry args={[0.8, 0.05, 0.3]} />
-        <meshStandardMaterial color="#450a0a" flatShading />
+        <meshStandardMaterial color={bodyDark} flatShading roughness={0.6} />
       </mesh>
 
       {/* Stub Wings */}
       <mesh castShadow position={[0, 0, 0.2]}>
         <boxGeometry args={[2.0, 0.1, 0.5]} />
-        <meshStandardMaterial color="#7f1d1d" flatShading />
+        <meshStandardMaterial color={steel} flatShading roughness={0.6} />
       </mesh>
 
       {/* Weapon Pods */}
       <mesh castShadow position={[0.8, -0.2, 0.2]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.12, 0.12, 0.6, 6]} />
-        <meshStandardMaterial color="#ea580c" flatShading />
+        <meshStandardMaterial color={bodyDark} flatShading roughness={0.5} />
       </mesh>
+      {/* Red Missile Tips on Pods */}
+      <mesh castShadow position={[0.8, -0.2, 0.52]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.1, 0.15, 6]} />
+        <meshStandardMaterial color="#ef4444" flatShading />
+      </mesh>
+      
       <mesh castShadow position={[-0.8, -0.2, 0.2]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.12, 0.12, 0.6, 6]} />
-        <meshStandardMaterial color="#ea580c" flatShading />
+        <meshStandardMaterial color={bodyDark} flatShading roughness={0.5} />
+      </mesh>
+      <mesh castShadow position={[-0.8, -0.2, 0.52]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.1, 0.15, 6]} />
+        <meshStandardMaterial color="#ef4444" flatShading />
       </mesh>
 
       {/* Sensor Pod / Chin Gun mount */}
       <mesh castShadow position={[0, -0.3, 1.2]}>
         <boxGeometry args={[0.2, 0.2, 0.3]} />
-        <meshStandardMaterial color="#000000" flatShading />
+        <meshStandardMaterial color={bodyDark} flatShading />
       </mesh>
 
       {/* Main Rotor System */}
       <mesh castShadow position={[0, 0.5, 0]}>
         <cylinderGeometry args={[0.08, 0.1, 0.4, 6]} />
-        <meshStandardMaterial color="#111827" flatShading />
+        <meshStandardMaterial color={steel} flatShading />
       </mesh>
       <group position={[0, 0.7, 0]} ref={rotorRef}>
         <mesh castShadow>
           <boxGeometry args={[5.5, 0.04, 0.2]} />
-          <meshStandardMaterial color="#111827" flatShading />
+          <meshStandardMaterial color={steel} flatShading />
         </mesh>
         <mesh castShadow rotation={[0, Math.PI / 2, 0]}>
           <boxGeometry args={[5.5, 0.04, 0.2]} />
-          <meshStandardMaterial color="#111827" flatShading />
+          <meshStandardMaterial color={steel} flatShading />
         </mesh>
       </group>
 
@@ -91,11 +120,11 @@ export function EnemyHelicopterModel(props: any) {
       <group position={[0.1, 0.5, -2.5]} ref={tailRotorRef}>
         <mesh castShadow>
           <boxGeometry args={[0.04, 1.0, 0.1]} />
-          <meshStandardMaterial color="#111827" flatShading />
+          <meshStandardMaterial color={steel} flatShading />
         </mesh>
         <mesh castShadow rotation={[Math.PI / 2, 0, 0]}>
           <boxGeometry args={[0.04, 1.0, 0.1]} />
-          <meshStandardMaterial color="#111827" flatShading />
+          <meshStandardMaterial color={steel} flatShading />
         </mesh>
       </group>
 
@@ -103,27 +132,27 @@ export function EnemyHelicopterModel(props: any) {
       <group position={[0, -0.1, 0]}>
         <mesh castShadow position={[0.4, -0.4, 0.5]}>
           <boxGeometry args={[0.05, 0.4, 0.05]} />
-          <meshStandardMaterial color="#111827" flatShading />
+          <meshStandardMaterial color={steel} flatShading />
         </mesh>
         <mesh castShadow position={[-0.4, -0.4, 0.5]}>
           <boxGeometry args={[0.05, 0.4, 0.05]} />
-          <meshStandardMaterial color="#111827" flatShading />
+          <meshStandardMaterial color={steel} flatShading />
         </mesh>
         <mesh castShadow position={[0.4, -0.4, -0.5]}>
           <boxGeometry args={[0.05, 0.4, 0.05]} />
-          <meshStandardMaterial color="#111827" flatShading />
+          <meshStandardMaterial color={steel} flatShading />
         </mesh>
         <mesh castShadow position={[-0.4, -0.4, -0.5]}>
           <boxGeometry args={[0.05, 0.4, 0.05]} />
-          <meshStandardMaterial color="#111827" flatShading />
+          <meshStandardMaterial color={steel} flatShading />
         </mesh>
         <mesh castShadow position={[0.4, -0.6, 0]}>
           <boxGeometry args={[0.05, 0.05, 1.6]} />
-          <meshStandardMaterial color="#111827" flatShading />
+          <meshStandardMaterial color={steel} flatShading />
         </mesh>
         <mesh castShadow position={[-0.4, -0.6, 0]}>
           <boxGeometry args={[0.05, 0.05, 1.6]} />
-          <meshStandardMaterial color="#111827" flatShading />
+          <meshStandardMaterial color={steel} flatShading />
         </mesh>
       </group>
     </group>
@@ -912,3 +941,62 @@ export function EnemyBlackSharkModel(props: any) {
     </group>
   );
 }
+
+// ==========================================
+// BOSS VARIANTS (Levels 5, 10, 15, 20, 25, 30)
+// ==========================================
+
+export const EnemyMegaTankModel = React.forwardRef((props: any, ref: any) => {
+  return (
+    <group {...props} scale={3.0}>
+      {/* A massive 3x scale tank for Level 5 */}
+      <EnemyTankModel ref={ref} />
+    </group>
+  );
+});
+
+export const EnemyHeavyGunshipModel = React.forwardRef((props: any, ref: any) => {
+  return (
+    <group {...props} scale={2.5}>
+      {/* A massive 2.5x scale gunship for Level 10 */}
+      <EnemyGunshipModel ref={ref} />
+    </group>
+  );
+});
+
+export const EnemyMegaMissileTruckModel = React.forwardRef((props: any, ref: any) => {
+  return (
+    <group {...props} scale={2.5}>
+      {/* Level 20 Boss */}
+      <EnemyMissileTruckModel ref={ref} />
+    </group>
+  );
+});
+
+export const EnemyTwinBlackSharkModel = React.forwardRef((props: any, ref: any) => {
+  return (
+    <group {...props} ref={ref}>
+      {/* Level 25 Boss - Two sharks attached together basically, or just one extra large */}
+      <group position={[4, 0, 0]}>
+        <EnemyBlackSharkModel />
+      </group>
+      <group position={[-4, 0, 0]}>
+        <EnemyBlackSharkModel />
+      </group>
+    </group>
+  );
+});
+
+export const EnemyFinalBlackSharkModel = React.forwardRef((props: any, ref: any) => {
+  return (
+    <group {...props} scale={2.0} ref={ref}>
+      {/* Level 30 Final Boss - Scaled up and menacing */}
+      <EnemyBlackSharkModel />
+      {/* Added glowing red aura / shield visual to the final boss */}
+      <mesh position={[0, 0, 0]}>
+        <sphereGeometry args={[2.5, 16, 16]} />
+        <meshBasicMaterial color="#ff0000" wireframe transparent opacity={0.15} />
+      </mesh>
+    </group>
+  );
+});

@@ -26,6 +26,9 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
   const fireTimer = useRef(0);
   const missileTimer = useRef(0);
   const isMouseDown = useRef(false);
+  const hitAnimTimer = useRef(0);
+  const prevHealth = useRef(100);
+  const exploded = useRef(false);
   const respawnCooldown = useRef(0);
   const blinkTimer = useRef(0);
 
@@ -62,47 +65,78 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
     // Tick mission time
     state.tickMissionTime(delta);
 
+    // Hit Animation Trigger
+    if (state.health < prevHealth.current && state.health > 0) {
+        hitAnimTimer.current = 0.4;
+    }
+    prevHealth.current = state.health;
+
     // Tick invulnerability
     state.tickInvulnerability(delta);
 
-    // Handle respawning state
-    if (state.respawning) {
-      respawnCooldown.current += delta;
+    // ─── DEATH & RESPAWNING ANIMATION ───
+    if (state.gameOver || state.gameState === 'gameover' || state.respawning) {
+      // Crash sequence
+      velocity.current.x = THREE.MathUtils.lerp(velocity.current.x, GAME_CONSTANTS.PLAYER.SCROLL_SPEED * 0.5, delta);
+      velocity.current.y -= 25 * delta; // Heavy gravity pull
       
-      // Wait 1 second before respawning (death pause)
-      if (respawnCooldown.current > 1.0) {
-        respawnCooldown.current = 0;
-        
-        // Reset position safely above the road
-        const currentX = groupRef.current.position.x;
-        groupRef.current.position.set(currentX - 5, 8, 0);
-        velocity.current.set(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0);
-        
-        // Clear all keys to prevent stuck inputs
-        Object.keys(keys.current).forEach(k => {
-          keys.current[k as keyof typeof keys.current] = false;
-        });
-        
-        state.respawnPlayer();
-        audioManager.playExplosion(); // Big explosion on death
-        
-        // Spawn respawn effect
-        spawnEffect(effects, groupRef.current.position.clone(), 'explosion', 3.0, '#60a5fa');
-      }
-      return;
-    }
-
-    // If game over, freeze movement
-    if (state.gameOver || state.gameState === 'gameover') {
-      // Slowly drift downward during game over
-      velocity.current.x = THREE.MathUtils.lerp(velocity.current.x, 0, delta * 2);
-      velocity.current.y = THREE.MathUtils.lerp(velocity.current.y, -3, delta);
       groupRef.current.position.addScaledVector(velocity.current, delta);
-      groupRef.current.rotation.z += delta * 2; // Spiral
+      groupRef.current.rotation.z -= delta * 4; // Nose dives
+      groupRef.current.rotation.x += delta * 6; // Wild roll
+      
+      // Trail of smoke/fire
+      if (Math.random() < 0.4) {
+          spawnEffect(effects, groupRef.current.position.clone(), 'muzzle', 1.0, '#ea580c');
+      }
+
+      // Hit the ground
+      if (groupRef.current.position.y <= 0 && !exploded.current) {
+          groupRef.current.position.y = 0;
+          spawnEffect(effects, groupRef.current.position.clone(), 'explosion_large', 4.0, '#ea580c');
+          audioManager.playExplosionLarge();
+          exploded.current = true;
+          if (heliRef.current) heliRef.current.visible = false;
+      }
+      
+      if (state.respawning) {
+          respawnCooldown.current += delta;
+          if (respawnCooldown.current > 2.0) { // 2 second crash view
+              respawnCooldown.current = 0;
+              exploded.current = false;
+              
+              const currentX = groupRef.current.position.x;
+              groupRef.current.position.set(currentX - 5, 8, 0);
+              groupRef.current.rotation.set(0, 0, 0);
+              velocity.current.set(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0);
+              
+              Object.keys(keys.current).forEach(k => {
+                keys.current[k as keyof typeof keys.current] = false;
+              });
+              
+              state.respawnPlayer();
+              audioManager.playExplosion();
+              spawnEffect(effects, groupRef.current.position.clone(), 'explosion', 3.0, '#60a5fa');
+          }
+      }
       return;
     }
     
     if (state.hitStop > 0 || state.paused) return;
+
+    // ─── Hit Jolt Animation ───
+    if (hitAnimTimer.current > 0) {
+      hitAnimTimer.current -= delta;
+      // Add wild shake rotation
+      groupRef.current.rotation.z += (Math.random() - 0.5) * 0.5;
+      groupRef.current.rotation.x += (Math.random() - 0.5) * 0.5;
+      
+      // Flash red
+      if (heliRef.current) {
+         heliRef.current.scale.setScalar(1.0 + Math.random() * 0.1);
+      }
+    } else if (heliRef.current) {
+      heliRef.current.scale.setScalar(1.0);
+    }
 
     // ─── Invulnerability blink effect ───
     if (state.invulnerable && heliRef.current) {
@@ -254,18 +288,8 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
                 spawnEffect(effects, m.position.clone().add(new THREE.Vector3(-0.2, 0.2, 0)), 'smoke', 0.8);
             }
 
-            // Ground explosion if hit road (y=0)
-            if (m.position.y <= 0) {
-                m.active = false;
-                spawnEffect(effects, m.position, 'explosion', 3.0, '#ea580c');
-                state.addShake(1.5);
-                // The collision manager will handle the actual damage area of effect since we only render here.
-                // Wait, collision manager needs to know when it explodes. We'll leave it to collision manager to check.
-                // Actually if we deactivate it here, collision manager won't see it hitting the ground. 
-                // So we'll let CollisionManager deactivate it when y <= 0.
-                m.active = true; // Undo deactivation so CollisionManager handles explosion damage.
-                m.position.y = 0; // Lock to ground for 1 frame
-            }
+            // Ground explosion is handled by CollisionManager
+            if (m.lifetime <= 0) m.active = false;
             if (m.lifetime <= 0) m.active = false;
         }
     }
