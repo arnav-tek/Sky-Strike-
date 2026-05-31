@@ -12,9 +12,18 @@
 
 ## ⚡ MISSION BRIEFING
 
-Welcome to **SKY STRIKE**, the ultimate high-fidelity arcade shooter. Take control of the elite **Ka-52 Alligator** attack helicopter and dominate the battlefield. Engage ground forces, evade missile locks, and survive the onslaught of enemy drones and armored columns.
+Welcome to **SKY STRIKE**, the ultimate high-fidelity arcade shooter. Take control of the elite **Boeing AH-64 Apache** attack helicopter and dominate the battlefield. Engage ground forces, evade missile locks, and survive the onslaught of enemy drones and armored columns.
 
-### 🌟 FEATURES
+## 📸 GAMEPLAY SHOWCASE
+
+<div align="center">
+  <img width="1000" alt="Sky Strike AH-64 Apache Gameplay" src="./gameplay_screenshot.png" />
+  <p><i>Command the skies with the high-fidelity Boeing AH-64 Apache Attack Helicopter, featuring custom tandem cockpit, nose targeting turret, spinning main and tail rotors, Hydra-70 rocket pods, and AGM-114 Hellfire guided missiles.</i></p>
+</div>
+
+---
+
+## 🌟 FEATURES
 *   🔥 **Hyper-Fast Combat**: Seamless 2.5D side-scrolling action with high-fidelity visuals.
 *   🔊 **Procedural SFX Engine**: Real-time generated audio for every vulcan shot, missile launch, and explosion.
 *   🚁 **Advanced Flight Physics**: Responsive arcade flight controls that make you feel like an ace pilot.
