@@ -1,0 +1,2439 @@
+﻿diff --git a/src/audio/AudioManager.ts b/src/audio/AudioManager.ts
+index 50d3745..8ef1c2f 100644
+--- a/src/audio/AudioManager.ts
++++ b/src/audio/AudioManager.ts
+@@ -89,26 +89,164 @@ class AudioManager {
+     osc.stop(this.ctx.currentTime + 0.5);
+   }
+ 
+-  playExplosion() {
++  playEnemyDeath(type: string) {
++    if (!this.initialized) this.init();
++    switch(type) {
++      case 'drone': case 'jeep': this.playExplosionSmall(); break;
++      case 'helicopter': case 'scout': case 'armored_car': this.playExplosionMedium(); break;
++      case 'tank': case 'gunship': case 'missile_truck': this.playExplosionLarge(); break;
++      case 'blackshark': this.playExplosionBoss(); break;
++      default: this.playExplosionMedium(); break;
++    }
++  }
++
++  playExplosionSmall() {
+     if (!this.ctx || !this.masterGain) return;
++    const time = this.ctx.currentTime;
++    
+     const noise = this.ctx.createBufferSource();
+     noise.buffer = this.createNoiseBuffer();
++    const noiseFilter = this.ctx.createBiquadFilter();
++    noiseFilter.type = 'highpass';
++    noiseFilter.frequency.value = 1000;
++    const noiseGain = this.ctx.createGain();
++    noiseGain.gain.setValueAtTime(0.3, time);
++    noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
++    noise.connect(noiseFilter);
++    noiseFilter.connect(noiseGain);
++    noiseGain.connect(this.masterGain);
++    noise.start(time);
++    noise.stop(time + 0.3);
++
++    const osc = this.ctx.createOscillator();
++    osc.type = 'sine';
++    osc.frequency.setValueAtTime(150, time);
++    osc.frequency.exponentialRampToValueAtTime(40, time + 0.2);
++    const oscGain = this.ctx.createGain();
++    oscGain.gain.setValueAtTime(0.4, time);
++    oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
++    osc.connect(oscGain);
++    oscGain.connect(this.masterGain);
++    osc.start(time);
++    osc.stop(time + 0.2);
++  }
++
++  playExplosionMedium() {
++    if (!this.ctx || !this.masterGain) return;
++    const time = this.ctx.currentTime;
++    const pitchJitter = 1.0 + (Math.random() - 0.5) * 0.1;
+     
++    const noise = this.ctx.createBufferSource();
++    noise.buffer = this.createNoiseBuffer();
+     const filter = this.ctx.createBiquadFilter();
+     filter.type = 'lowpass';
+-    filter.frequency.setValueAtTime(1000, this.ctx.currentTime);
+-    filter.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.8);
+-    
++    filter.frequency.setValueAtTime(2000, time);
++    filter.frequency.exponentialRampToValueAtTime(100, time + 0.6);
+     const gain = this.ctx.createGain();
+-    gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.8);
++    gain.gain.setValueAtTime(0.5, time);
++    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.6);
++    noise.connect(filter);
++    filter.connect(gain);
++    gain.connect(this.masterGain);
++    noise.start(time);
++    noise.stop(time + 0.6);
++
++    const osc = this.ctx.createOscillator();
++    osc.type = 'triangle';
++    osc.frequency.setValueAtTime(200 * pitchJitter, time);
++    osc.frequency.exponentialRampToValueAtTime(30, time + 0.5);
++    const oscGain = this.ctx.createGain();
++    oscGain.gain.setValueAtTime(0.6, time);
++    oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
++    osc.connect(oscGain);
++    oscGain.connect(this.masterGain);
++    osc.start(time);
++    osc.stop(time + 0.5);
++
++    const fmOsc = this.ctx.createOscillator();
++    fmOsc.type = 'square';
++    fmOsc.frequency.setValueAtTime(300 * pitchJitter, time);
++    fmOsc.frequency.exponentialRampToValueAtTime(50, time + 0.3);
++    const fmGain = this.ctx.createGain();
++    fmGain.gain.setValueAtTime(0.2, time);
++    fmGain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
++    fmOsc.connect(fmGain);
++    fmGain.connect(this.masterGain);
++    fmOsc.start(time);
++    fmOsc.stop(time + 0.3);
++  }
++
++  playExplosionLarge() {
++    if (!this.ctx || !this.masterGain) return;
++    const time = this.ctx.currentTime;
++    const pitchJitter = 1.0 + (Math.random() - 0.5) * 0.15;
+     
++    const noise = this.ctx.createBufferSource();
++    noise.buffer = this.createNoiseBuffer();
++    const filter = this.ctx.createBiquadFilter();
++    filter.type = 'lowpass';
++    filter.frequency.setValueAtTime(1500, time);
++    filter.frequency.exponentialRampToValueAtTime(50, time + 1.2);
++    const gain = this.ctx.createGain();
++    gain.gain.setValueAtTime(0.8, time);
++    gain.gain.exponentialRampToValueAtTime(0.01, time + 1.2);
+     noise.connect(filter);
+     filter.connect(gain);
+     gain.connect(this.masterGain);
++    noise.start(time);
++    noise.stop(time + 1.2);
++
++    const osc = this.ctx.createOscillator();
++    osc.type = 'sine';
++    osc.frequency.setValueAtTime(120 * pitchJitter, time);
++    osc.frequency.exponentialRampToValueAtTime(20, time + 1.0);
++    const oscGain = this.ctx.createGain();
++    oscGain.gain.setValueAtTime(1.0, time);
++    oscGain.gain.exponentialRampToValueAtTime(0.01, time + 1.0);
++    osc.connect(oscGain);
++    oscGain.connect(this.masterGain);
++    osc.start(time);
++    osc.stop(time + 1.0);
++
++    const fmOsc = this.ctx.createOscillator();
++    fmOsc.type = 'sawtooth';
++    fmOsc.frequency.setValueAtTime(150 * pitchJitter, time);
++    fmOsc.frequency.exponentialRampToValueAtTime(30, time + 0.6);
++    const fmGain = this.ctx.createGain();
++    fmGain.gain.setValueAtTime(0.4, time);
++    fmGain.gain.exponentialRampToValueAtTime(0.01, time + 0.6);
++    fmOsc.connect(fmGain);
++    fmGain.connect(this.masterGain);
++    fmOsc.start(time);
++    fmOsc.stop(time + 0.6);
++  }
++
++  playExplosionBoss() {
++    if (!this.ctx || !this.masterGain) return;
+     
+-    noise.start();
+-    noise.stop(this.ctx.currentTime + 0.8);
++    this.playExplosionLarge();
++    setTimeout(() => this.playExplosionLarge(), 200);
++    setTimeout(() => this.playExplosionMedium(), 400);
++    setTimeout(() => this.playExplosionLarge(), 600);
++    setTimeout(() => this.playExplosionMedium(), 800);
++    setTimeout(() => {
++        this.playExplosionLarge();
++        const osc = this.ctx!.createOscillator();
++        osc.type = 'square';
++        osc.frequency.setValueAtTime(50, this.ctx!.currentTime);
++        osc.frequency.exponentialRampToValueAtTime(10, this.ctx!.currentTime + 2.0);
++        const oscGain = this.ctx!.createGain();
++        oscGain.gain.setValueAtTime(0.8, this.ctx!.currentTime);
++        oscGain.gain.exponentialRampToValueAtTime(0.01, this.ctx!.currentTime + 2.0);
++        osc.connect(oscGain);
++        oscGain.connect(this.masterGain!);
++        osc.start();
++        osc.stop(this.ctx!.currentTime + 2.0);
++    }, 1200);
++  }
++
++  playExplosion() {
++    this.playExplosionMedium();
+   }
+ 
+   playHit() {
+diff --git a/src/components/GameCanvas.tsx b/src/components/GameCanvas.tsx
+index 92050ee..4f04d75 100644
+--- a/src/components/GameCanvas.tsx
++++ b/src/components/GameCanvas.tsx
+@@ -8,8 +8,9 @@ import CollisionManager from './entities/CollisionManager';
+ import CameraController from './CameraController';
+ import EffectsManager, { useEffects } from './entities/EffectsManager';
+ import * as THREE from 'three';
++import { useStore } from '../store/useStore';
+ 
+-export default function GameCanvas() {
++function GameSession() {
+   const [bullets] = React.useState(() => Array.from({ length: 50 }, () => ({
+     active: false,
+     position: new THREE.Vector3(),
+@@ -17,7 +18,7 @@ export default function GameCanvas() {
+     lifetime: 0
+   })));
+ 
+-  const [enemies] = React.useState(() => Array.from({ length: 40 }, () => ({
++  const [enemies] = React.useState(() => Array.from({ length: 50 }, () => ({
+     active: false,
+     position: new THREE.Vector3(),
+     velocity: new THREE.Vector3(),
+@@ -29,7 +30,10 @@ export default function GameCanvas() {
+     baseY: 0,
+     timeOffset: Math.random() * 100,
+     type: 'helicopter',
+-    variant: 'standard'
++    variant: 'standard',
++    burstCount: 0,
++    shieldActive: false,
++    laneIndex: 0
+   })));
+ 
+   const [enemyBullets] = React.useState(() => Array.from({ length: 100 }, () => ({
+@@ -48,6 +52,22 @@ export default function GameCanvas() {
+ 
+   const [effects] = useEffects();
+ 
++  return (
++    <>
++      <Player bullets={bullets} missiles={playerMissiles} effects={effects} />
++      <BulletManager bullets={bullets} />
++      <MissileManager missiles={playerMissiles} />
++      <EnemyManager enemies={enemies} enemyBullets={enemyBullets} effects={effects} />
++      <BulletManager bullets={enemyBullets} />
++      <CollisionManager bullets={bullets} missiles={playerMissiles} enemies={enemies} enemyBullets={enemyBullets} effects={effects} />
++      <EffectsManager effects={effects} />
++    </>
++  );
++}
++
++export default function GameCanvas() {
++  const playSessionId = useStore(state => state.playSessionId);
++
+   return (
+     <Canvas shadows camera={{ position: [0, 10, 30], fov: 45 }}>
+       <color attach="background" args={["#7dd3fc"]} />
+@@ -63,13 +83,11 @@ export default function GameCanvas() {
+       />
+ 
+       <Environment />
+-      <Player bullets={bullets} missiles={playerMissiles} effects={effects} />
+-      <BulletManager bullets={bullets} />
+-      <MissileManager missiles={playerMissiles} />
+-      <EnemyManager enemies={enemies} enemyBullets={enemyBullets} effects={effects} />
+-      <BulletManager bullets={enemyBullets} />
+-      <CollisionManager bullets={bullets} missiles={playerMissiles} enemies={enemies} enemyBullets={enemyBullets} effects={effects} />
+-      <EffectsManager effects={effects} />
++      
++      {/* GameSession is keyed by playSessionId so all internal states (enemy pools, bullets, effects) 
++          are completely destroyed and recreated from scratch on game reset */}
++      <GameSession key={playSessionId} />
++      
+       <CameraController />
+     </Canvas>
+   );
+diff --git a/src/components/entities/CollisionManager.tsx b/src/components/entities/CollisionManager.tsx
+index fa1fa22..0321dde 100644
+--- a/src/components/entities/CollisionManager.tsx
++++ b/src/components/entities/CollisionManager.tsx
+@@ -1,9 +1,18 @@
+ import { useFrame } from '@react-three/fiber';
+ import { useStore } from '../../store/useStore';
+ import { spawnEffect } from './EffectsManager';
++import { spawnEnemyExplosion } from './ExplosionHelper';
+ import { audioManager } from '../../audio/AudioManager';
+ import * as THREE from 'three';
+ 
++const SCORE_TABLE: Record<string, number> = {
++    drone: 50, jeep: 75, scout: 100, helicopter: 150,
++    armored_car: 150, tank: 250, gunship: 350,
++    missile_truck: 200, blackshark: 1000,
++    mega_tank: 2500, heavy_gunship: 3000, 
++    mega_missile_truck: 3500, blackshark_twin: 4000, blackshark_final: 10000
++};
++
+ export default function CollisionManager({ bullets, missiles, enemies, enemyBullets, effects }: { bullets: any[], missiles: any[], enemies: any[], enemyBullets: any[], effects: any[] }) {
+     useFrame((_, delta) => {
+         const state = useStore.getState();
+@@ -33,6 +42,9 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
+         for (let m of missiles) {
+             if (m.active && m.position.y <= 0) {
+                 m.active = false; // Disable missile
++                spawnEffect(effects, m.position, 'explosion_large', 3.0, '#ea580c');
++                useStore.getState().addShake(1.5);
++                audioManager.playExplosionLarge();
+                 
+                 // Area of effect damage to enemies
+                 for (let e of enemies) {
+@@ -53,9 +65,15 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
+                             e.active = false; 
+                             useStore.getState().addCombo();
+                             useStore.getState().addEnemyKill();
+-                            addScore(100); 
+-                            audioManager.playExplosion();
+-                            spawnEffect(effects, e.position, 'explosion', 2.0, '#ea580c');
++                            const scoreAmt = SCORE_TABLE[e.type] || 100;
++                            addScore(scoreAmt); 
++                            audioManager.playEnemyDeath(e.type);
++                            spawnEnemyExplosion(effects, e.position, e.type, 1.5);
++                            
++                            const isBoss = ['blackshark', 'mega_tank', 'heavy_gunship', 'mega_missile_truck', 'blackshark_twin', 'blackshark_final'].includes(e.type);
++                            if (isBoss) {
++                                useStore.getState().completeLevel();
++                            }
+                         } else {
+                             audioManager.playHit();
+                             spawnEffect(effects, e.position, 'hit', 1.0, '#ffffff');
+@@ -87,17 +105,32 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
+ 
+                 if (distSq < radiusSum * radiusSum && Math.abs(dz) < zThreshold) {
+                     b.active = false; 
+-                    e.health -= 15; 
++                    e.health -= 20; 
+                     
+                     if (e.health <= 0) {
+                         e.active = false; 
+                         useStore.getState().addCombo();
+                         useStore.getState().addEnemyKill();
+-                        addScore(100); // multiplier is handled inside addScore
+-                        audioManager.playExplosion();
+-                        spawnEffect(effects, e.position, 'explosion', 2.0, '#ea580c');
+-                        useStore.getState().addShake(0.3);
+-                        useStore.getState().triggerHitStop(0.05); // 50ms hit stop for game feel
++                        const scoreAmt = SCORE_TABLE[e.type] || 100;
++                        addScore(scoreAmt); 
++                        
++                        audioManager.playEnemyDeath(e.type);
++                        spawnEnemyExplosion(effects, e.position, e.type, 1.0);
++                        
++                        const isBoss = ['blackshark', 'mega_tank', 'heavy_gunship', 'mega_missile_truck', 'blackshark_twin', 'blackshark_final'].includes(e.type);
++                        if (isBoss) {
++                            useStore.getState().completeLevel();
++                        }
++                        
++                        // Scale shake and hitstop by enemy type
++                        let shakeAmt = 0.3;
++                        let hitStopAmt = 0.05;
++                        if (['tank', 'gunship', 'missile_truck'].includes(e.type)) { shakeAmt = 0.8; hitStopAmt = 0.1; }
++                        if (isBoss) { shakeAmt = 1.5; hitStopAmt = 0.15; }
++                        if (['drone', 'jeep'].includes(e.type)) { shakeAmt = 0.1; hitStopAmt = 0.02; }
++                        
++                        useStore.getState().addShake(shakeAmt);
++                        useStore.getState().triggerHitStop(hitStopAmt); 
+                         
+                         // Play combo sound if multiplier is high
+                         if (useStore.getState().combo > 1) {
+@@ -122,7 +155,8 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
+                     e.active = false;
+                     const damage = e.state === 'kamikaze' ? 40 : 20;
+                     takeDamage(damage);
+-                    spawnEffect(effects, e.position, 'explosion', 2.5, '#ea580c');
++                    audioManager.playEnemyDeath(e.type);
++                    spawnEnemyExplosion(effects, e.position, e.type, 1.0);
+                     spawnEffect(effects, _playerPos, 'hit', 2.0, '#ffffff');
+                     useStore.getState().addShake(e.state === 'kamikaze' ? 2.5 : 1.5);
+                     useStore.getState().addEnemyKill();
+@@ -134,7 +168,7 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
+                 let b = enemyBullets[i];
+                 if (b.active && _playerPos.distanceTo(b.position) < (bulletRadius + playerRadius)) {
+                     b.active = false;
+-                    takeDamage(10);
++                    takeDamage(8);
+                     spawnEffect(effects, b.position, 'hit', 1.5, '#ffffff');
+                     useStore.getState().addShake(0.5);
+                 }
+diff --git a/src/components/entities/EffectsManager.tsx b/src/components/entities/EffectsManager.tsx
+index 7b982fd..008e3d9 100644
+--- a/src/components/entities/EffectsManager.tsx
++++ b/src/components/entities/EffectsManager.tsx
+@@ -5,31 +5,40 @@ import * as THREE from 'three';
+ export interface EffectData {
+   active: boolean;
+   position: THREE.Vector3;
+-  type: 'explosion' | 'muzzle' | 'hit' | 'smoke';
++  velocity: THREE.Vector3;
++  type: 'explosion' | 'muzzle' | 'hit' | 'smoke' | 'explosion_large' | 'debris' | 'fire_trail' | 'shockwave' | 'sparks';
+   timer: number;
+   maxTime: number;
+   scale: number;
+   color: string;
++  gravity: number;
++  rotationSpeed: THREE.Vector3;
+ }
+ 
+ export const useEffects = () => {
+-    return React.useState<EffectData[]>(() => Array.from({ length: 80 }, () => ({
++    return React.useState<EffectData[]>(() => Array.from({ length: 200 }, () => ({
+         active: false,
+         position: new THREE.Vector3(),
++        velocity: new THREE.Vector3(),
+         type: 'explosion',
+         timer: 0,
+         maxTime: 1.0,
+         scale: 1,
+-        color: '#ffffff'
++        color: '#ffffff',
++        gravity: 0,
++        rotationSpeed: new THREE.Vector3()
+     })));
+ };
+ 
+ export const spawnEffect = (
+     effects: EffectData[], 
+     position: THREE.Vector3, 
+-    type: 'explosion' | 'muzzle' | 'hit' | 'smoke',
++    type: EffectData['type'],
+     scale: number = 1.0,
+-    color: string = '#ffffff'
++    color: string = '#ffffff',
++    velocity?: THREE.Vector3,
++    gravity: number = 0,
++    rotationSpeed?: THREE.Vector3
+ ) => {
+     const e = effects.find(eff => !eff.active);
+     if (e) {
+@@ -39,49 +48,145 @@ export const spawnEffect = (
+         e.timer = 0;
+         e.scale = scale;
+         e.color = color;
++        e.velocity.copy(velocity || new THREE.Vector3());
++        e.gravity = gravity;
++        e.rotationSpeed.copy(rotationSpeed || new THREE.Vector3());
++
+         if (type === 'explosion') e.maxTime = 0.5;
++        if (type === 'explosion_large') e.maxTime = 0.8;
+         if (type === 'muzzle') e.maxTime = 0.1;
+         if (type === 'hit') e.maxTime = 0.2;
+-        if (type === 'smoke') e.maxTime = 0.4;
++        if (type === 'smoke') e.maxTime = 0.8;
++        if (type === 'debris') e.maxTime = 1.0;
++        if (type === 'fire_trail') e.maxTime = 0.5;
++        if (type === 'shockwave') e.maxTime = 0.3;
++        if (type === 'sparks') e.maxTime = 0.4;
+     }
+ };
+ 
+ const EffectInstance = ({ effect }: { effect: EffectData }) => {
+-    const meshRef = useRef<THREE.Mesh>(null);
+-    const materialRef = useRef<THREE.MeshBasicMaterial>(null);
++    const groupRef = useRef<THREE.Group>(null);
++    const sphereRef = useRef<THREE.Mesh>(null);
++    const boxRef = useRef<THREE.Mesh>(null);
++    const ringRef = useRef<THREE.Mesh>(null);
++    const coneRef = useRef<THREE.Mesh>(null);
++    
++    const sphereMatRef = useRef<THREE.MeshBasicMaterial>(null);
++    const boxMatRef = useRef<THREE.MeshBasicMaterial>(null);
++    const ringMatRef = useRef<THREE.MeshBasicMaterial>(null);
++    const coneMatRef = useRef<THREE.MeshBasicMaterial>(null);
+ 
+-    useFrame(() => {
+-        if (!meshRef.current || !materialRef.current || !effect.active) return;
++    useFrame((_, delta) => {
++        if (!groupRef.current || !effect.active) return;
+         
+-        meshRef.current.position.copy(effect.position);
+-        meshRef.current.visible = true;
++        groupRef.current.position.copy(effect.position);
++        groupRef.current.visible = true;
+         
+         const progress = effect.timer / effect.maxTime;
+-        
+-        if (effect.type === 'explosion') {
+-            meshRef.current.scale.setScalar(effect.scale * (1 + progress * 2));
+-            materialRef.current.opacity = 1 - progress;
+-            materialRef.current.color.set(effect.color);
+-        } else if (effect.type === 'muzzle') {
+-            meshRef.current.scale.setScalar(effect.scale * (1 - progress));
+-            materialRef.current.opacity = 1 - progress;
+-            materialRef.current.color.set('#fef08a'); // bright yellow
+-        } else if (effect.type === 'hit') {
+-            meshRef.current.scale.setScalar(effect.scale * (1 + progress));
+-            materialRef.current.opacity = 1 - progress;
+-            materialRef.current.color.set('#ffffff');
+-        } else if (effect.type === 'smoke') {
+-            meshRef.current.scale.setScalar(effect.scale * (1 + progress));
+-            materialRef.current.opacity = (1 - progress) * 0.5;
+-            materialRef.current.color.set('#52525b'); // gray smoke
++        let activeMesh: THREE.Mesh | null = null;
++        let activeMat: THREE.MeshBasicMaterial | null = null;
++
++        // Reset visibility
++        if (sphereRef.current) sphereRef.current.visible = false;
++        if (boxRef.current) boxRef.current.visible = false;
++        if (ringRef.current) ringRef.current.visible = false;
++        if (coneRef.current) coneRef.current.visible = false;
++
++        // Apply physics
++        if (effect.velocity.lengthSq() > 0) {
++            effect.position.addScaledVector(effect.velocity, delta);
++        }
++        if (effect.gravity !== 0) {
++            effect.velocity.y -= effect.gravity * delta;
++        }
++
++        if (effect.type === 'explosion' || effect.type === 'explosion_large' || effect.type === 'muzzle' || effect.type === 'hit' || effect.type === 'smoke' || effect.type === 'fire_trail') {
++            activeMesh = sphereRef.current;
++            activeMat = sphereMatRef.current;
++            if (activeMesh) activeMesh.visible = true;
++            
++            if (effect.type === 'explosion' || effect.type === 'explosion_large') {
++                activeMesh!.scale.setScalar(effect.scale * (1 + progress * 2));
++                activeMat!.opacity = 1 - Math.pow(progress, 2);
++                activeMat!.color.set(effect.color);
++            } else if (effect.type === 'muzzle') {
++                activeMesh!.scale.setScalar(effect.scale * (1 - progress));
++                activeMat!.opacity = 1 - progress;
++                activeMat!.color.set('#fef08a');
++            } else if (effect.type === 'hit') {
++                activeMesh!.scale.setScalar(effect.scale * (1 + progress));
++                activeMat!.opacity = 1 - progress;
++                activeMat!.color.set('#ffffff');
++            } else if (effect.type === 'smoke') {
++                activeMesh!.scale.setScalar(effect.scale * (1 + progress * 1.5));
++                activeMat!.opacity = (1 - progress) * 0.5;
++                activeMat!.color.set('#52525b');
++            } else if (effect.type === 'fire_trail') {
++                activeMesh!.scale.setScalar(effect.scale * (1 - progress));
++                activeMat!.opacity = 1 - progress;
++                activeMat!.color.set(effect.color);
++            }
++        } 
++        else if (effect.type === 'debris') {
++            activeMesh = boxRef.current;
++            activeMat = boxMatRef.current;
++            if (activeMesh) {
++                activeMesh.visible = true;
++                activeMesh.rotation.x += effect.rotationSpeed.x * delta;
++                activeMesh.rotation.y += effect.rotationSpeed.y * delta;
++                activeMesh.rotation.z += effect.rotationSpeed.z * delta;
++                activeMesh.scale.setScalar(effect.scale * (1 - progress * 0.5));
++                activeMat!.opacity = 1 - progress;
++                activeMat!.color.set(effect.color);
++            }
++        }
++        else if (effect.type === 'shockwave') {
++            activeMesh = ringRef.current;
++            activeMat = ringMatRef.current;
++            if (activeMesh) {
++                activeMesh.visible = true;
++                activeMesh.scale.setScalar(effect.scale * (1 + progress * 5));
++                activeMat!.opacity = (1 - progress) * 0.7;
++                activeMat!.color.set(effect.color);
++            }
++        }
++        else if (effect.type === 'sparks') {
++            activeMesh = coneRef.current;
++            activeMat = coneMatRef.current;
++            if (activeMesh) {
++                activeMesh.visible = true;
++                // Align cone to velocity
++                if (effect.velocity.lengthSq() > 0.1) {
++                    const dir = effect.velocity.clone().normalize();
++                    const axis = new THREE.Vector3(0, 1, 0);
++                    activeMesh.quaternion.setFromUnitVectors(axis, dir);
++                }
++                activeMesh.scale.set(effect.scale * 0.5, effect.scale * (2 + progress * 2), effect.scale * 0.5);
++                activeMat!.opacity = 1 - progress;
++                activeMat!.color.set(effect.color);
++            }
+         }
+     });
+ 
+     return (
+-        <mesh ref={meshRef} visible={false}>
+-            <sphereGeometry args={[1, 8, 8]} />
+-            <meshBasicMaterial ref={materialRef} transparent opacity={1} depthWrite={false} />
+-        </mesh>
++        <group ref={groupRef} visible={false}>
++            <mesh ref={sphereRef} visible={false}>
++                <sphereGeometry args={[1, 8, 8]} />
++                <meshBasicMaterial ref={sphereMatRef} transparent opacity={1} depthWrite={false} />
++            </mesh>
++            <mesh ref={boxRef} visible={false}>
++                <boxGeometry args={[1, 1, 1]} />
++                <meshBasicMaterial ref={boxMatRef} transparent opacity={1} depthWrite={false} />
++            </mesh>
++            <mesh ref={ringRef} visible={false} rotation={[Math.PI / 2, 0, 0]}>
++                <ringGeometry args={[0.8, 1, 16]} />
++                <meshBasicMaterial ref={ringMatRef} transparent opacity={1} depthWrite={false} side={THREE.DoubleSide} />
++            </mesh>
++            <mesh ref={coneRef} visible={false}>
++                <coneGeometry args={[1, 2, 4]} />
++                <meshBasicMaterial ref={coneMatRef} transparent opacity={1} depthWrite={false} />
++            </mesh>
++        </group>
+     );
+ };
+ 
+diff --git a/src/components/entities/Enemy.tsx b/src/components/entities/Enemy.tsx
+index 4c04908..b9c9d4b 100644
+--- a/src/components/entities/Enemy.tsx
++++ b/src/components/entities/Enemy.tsx
+@@ -1,10 +1,12 @@
+-import React, { useRef, useState } from 'react';
++import React, { useRef } from 'react';
+ import { useFrame } from '@react-three/fiber';
+ import { useStore } from '../../store/useStore';
+ import { 
+     EnemyHelicopterModel, EnemyDroneModel, EnemyTankModel,
+     EnemyArmoredCarModel, EnemyMissileTruckModel, EnemyJeepModel,
+-    EnemyGunshipModel, EnemyScoutHeliModel, EnemyBlackSharkModel
++    EnemyGunshipModel, EnemyScoutHeliModel, EnemyBlackSharkModel,
++    EnemyMegaTankModel, EnemyHeavyGunshipModel, EnemyMegaMissileTruckModel,
++    EnemyTwinBlackSharkModel, EnemyFinalBlackSharkModel
+ } from '../models/EnemyModels';
+ import * as THREE from 'three';
+ import { GAME_CONSTANTS } from '../../constants';
+@@ -17,16 +19,20 @@ export interface EnemyData {
+   velocity: THREE.Vector3;
+   health: number;
+   fireTimer: number;
+-  state: 'approach' | 'attack' | 'evade' | 'kamikaze' | 'defensive';
++  state: 'approach' | 'attack' | 'evade' | 'kamikaze' | 'defensive' | 'strafe' | 'burst_fire' | 'retreat' | 'shield';
+   stateTimer: number;
+   targetY: number;
+   baseY: number;
+   timeOffset: number;
+-  type: 'helicopter' | 'drone' | 'tank' | 'armored_car' | 'missile_truck' | 'jeep' | 'gunship' | 'scout' | 'blackshark';
++  type: 'helicopter' | 'drone' | 'tank' | 'armored_car' | 'missile_truck' | 'jeep' | 'gunship' | 'scout' | 'blackshark' | 'mega_tank' | 'heavy_gunship' | 'mega_missile_truck' | 'blackshark_twin' | 'blackshark_final';
+   variant: 'standard' | 'aggressive' | 'sniper';
++  burstCount: number;
++  shieldActive: boolean;
++  laneIndex: number;
+ }
+ 
+-const isGroundEnemy = (type: string) => ['tank', 'armored_car', 'missile_truck', 'jeep'].includes(type);
++const isGroundEnemy = (type: string) => ['tank', 'armored_car', 'missile_truck', 'jeep', 'mega_tank', 'mega_missile_truck'].includes(type);
++const isBossType = (type: string) => ['blackshark', 'mega_tank', 'heavy_gunship', 'mega_missile_truck', 'blackshark_twin', 'blackshark_final'].includes(type);
+ 
+ const WAVE_CONFIG: Record<string, { spawnRate: number, composition: Record<string, number> }> = {
+     buildup: {
+@@ -42,29 +48,57 @@ const WAVE_CONFIG: Record<string, { spawnRate: number, composition: Record<strin
+         composition: { tank: 0.2, gunship: 0.3, missile_truck: 0.1, armored_car: 0.1, helicopter: 0.3 }
+     },
+     release: {
+-        spawnRate: 999, // no spawns
+-        composition: { drone: 1.0 }
++        spawnRate: GAME_CONSTANTS.ENEMY.SPAWN_RATE * 1.5,
++        composition: { drone: 0.5, jeep: 0.3, scout: 0.2 }
+     }
+ };
+ 
++const ROAD_LANES = [-4, 0, 4];
++
+ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[], enemyBullets: any[], effects: any[] }) {
+-  const [spawnCount, setSpawnCount] = useState(0); // Force re-render on spawn to swap models
+   const spawnTimer = useRef(0);
+   const waveTimer = useRef(0);
+   const totalTimer = useRef(0);
+   const wavePhase = useRef<'buildup' | 'tension' | 'climax' | 'release'>('buildup');
+ 
++  const bossSpawnedRef = useRef(false);
++  const previousLevel = useRef(1);
++
+   useFrame((state, delta) => {
+-    const gameState = useStore.getState().gameState;
+-    const playerPos = useStore.getState().playerPos;
++    const storeState = useStore.getState();
++    const { gameState, playerPos, currentLevel, levelTransitioning, levelTimer } = storeState;
++    
+     if (gameState !== 'playing') return;
+ 
++    if (currentLevel !== previousLevel.current) {
++        previousLevel.current = currentLevel;
++        bossSpawnedRef.current = false;
++        wavePhase.current = 'buildup';
++        waveTimer.current = 0;
++    }
++
++    if (!levelTransitioning) {
++        useStore.getState().tickLevelTimer(delta);
++    }
++
++    const isBossLevel = currentLevel % 5 === 0;
++
++    // Check level complete
++    if (!isBossLevel && !levelTransitioning && levelTimer >= 60) {
++        useStore.getState().completeLevel();
++    }
++
++    if (levelTransitioning) {
++        // Stop spawning during transitions
++        return;
++    }
++
+     spawnTimer.current += delta;
+     waveTimer.current += delta;
+     totalTimer.current += delta;
+ 
+-    // Phase management
+-    if (waveTimer.current > 20) {
++    // Phase management (15 seconds per phase)
++    if (waveTimer.current > 15) {
+         waveTimer.current = 0;
+         if (wavePhase.current === 'buildup') wavePhase.current = 'tension';
+         else if (wavePhase.current === 'tension') wavePhase.current = 'climax';
+@@ -72,175 +106,347 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
+         else if (wavePhase.current === 'release') wavePhase.current = 'buildup';
+     }
+ 
+-    const difficulty = 1.0 + Math.floor(totalTimer.current / 60) * 0.5;
++    // Difficulty scaling based on current level
++    const healthMult = 1.0 + (currentLevel * 0.15);
++    const fireRateMult = 1.0 + (currentLevel * 0.1);
++    const spawnRateMult = 1.0 + (currentLevel * 0.08);
+     const waveParams = WAVE_CONFIG[wavePhase.current];
+     
+-    if (spawnTimer.current > waveParams.spawnRate / difficulty) {
++    if (spawnTimer.current > waveParams.spawnRate / spawnRateMult) {
+         spawnTimer.current = 0;
+         const e = enemies.find(e => !e.active) as EnemyData | undefined;
+         if (e) {
+-            const rand = Math.random();
+-            let cumulativeProb = 0;
+             let chosenType = 'helicopter';
+-            const activeGroundCount = enemies.filter(en => en.active && isGroundEnemy(en.type)).length;
+-            
+-            for (const [type, prob] of Object.entries(waveParams.composition)) {
+-                cumulativeProb += prob;
+-                if (rand <= cumulativeProb) {
+-                    chosenType = type;
+-                    // Prevent too many ground enemies
+-                    if (isGroundEnemy(chosenType) && activeGroundCount > 6) {
+-                        chosenType = 'helicopter';
++
++            if (isBossLevel && !bossSpawnedRef.current && levelTimer > 5) {
++                // Spawn the specific boss for this level
++                if (currentLevel === 5) chosenType = 'mega_tank';
++                else if (currentLevel === 10) chosenType = 'heavy_gunship';
++                else if (currentLevel === 15) chosenType = 'blackshark';
++                else if (currentLevel === 20) chosenType = 'mega_missile_truck';
++                else if (currentLevel === 25) chosenType = 'blackshark_twin';
++                else chosenType = 'blackshark_final'; // 30+
++
++                bossSpawnedRef.current = true;
++                audioManager.playBossMusic();
++            } else if (isBossLevel) {
++                // Spawn light fodder during boss levels
++                chosenType = Math.random() > 0.5 ? 'drone' : 'jeep';
++            } else {
++                const rand = Math.random();
++                let cumulativeProb = 0;
++                
++                for (const [type, prob] of Object.entries(waveParams.composition)) {
++                    cumulativeProb += prob;
++                    if (rand <= cumulativeProb) {
++                        chosenType = type;
++                        break;
+                     }
+-                    break;
+                 }
+             }
+ 
+             e.type = chosenType as any;
+-            
+-            // Special Spawn Overrides
+-            if (useStore.getState().score >= 2000 && Math.random() > 0.85) {
+-                e.type = 'blackshark';
+-                audioManager.playBossMusic();
+-            }
+-
+             const isGround = isGroundEnemy(e.type);
++            const isBoss = isBossType(e.type);
+             
+             e.active = true;
+-            e.health = GAME_CONSTANTS.ENEMY.HEALTH * (isGround ? 2.5 : 1.0) * (e.type === 'tank' ? 3.0 : 1.0) * (e.type === 'gunship' ? 4.0 : 1.0) * (e.type === 'blackshark' ? 5.0 : 1.0) * difficulty;
++            // Balance pass on health per enemy
++            let baseHealthMult = 1.0;
++            if (e.type === 'tank') baseHealthMult = 3.0;
++            if (e.type === 'gunship') baseHealthMult = 4.0;
++            if (e.type === 'drone') baseHealthMult = 0.5;
++            if (e.type === 'jeep') baseHealthMult = 0.8;
++
++            // Boss health scaling
++            if (e.type === 'mega_tank') baseHealthMult = 15.0;
++            if (e.type === 'heavy_gunship') baseHealthMult = 18.0;
++            if (e.type === 'blackshark') baseHealthMult = 20.0;
++            if (e.type === 'mega_missile_truck') baseHealthMult = 25.0;
++            if (e.type === 'blackshark_twin') baseHealthMult = 30.0;
++            if (e.type === 'blackshark_final') baseHealthMult = 40.0;
++            
++            e.health = GAME_CONSTANTS.ENEMY.HEALTH * baseHealthMult * healthMult;
+             e.state = 'approach';
+             e.stateTimer = 0;
+             e.fireTimer = 0;
+-            e.baseY = isGround ? 0.0 : Math.random() * (GAME_CONSTANTS.BOUNDS.Y_MAX - GAME_CONSTANTS.BOUNDS.Y_MIN) + GAME_CONSTANTS.BOUNDS.Y_MIN;
++            e.burstCount = 0;
++            e.shieldActive = false;
++            
++            if (isGround) {
++                 e.baseY = GAME_CONSTANTS.ENEMY.GROUND_Y_OFFSETS[e.type as keyof typeof GAME_CONSTANTS.ENEMY.GROUND_Y_OFFSETS] || 0;
++                 // Mega tank offset slightly higher
++                 if (e.type === 'mega_tank') e.baseY = 1.8;
++                 if (e.type === 'mega_missile_truck') e.baseY = 1.5;
++            } else {
++                 e.baseY = Math.random() * (GAME_CONSTANTS.BOUNDS.Y_MAX - GAME_CONSTANTS.BOUNDS.Y_MIN) + GAME_CONSTANTS.BOUNDS.Y_MIN;
++            }
+             e.targetY = e.baseY;
+             
+-            const roadZ = (Math.random() - 0.5) * 10;
+-            e.position.set(playerPos[0] + 50, e.baseY, isGround ? roadZ : 0);
++            e.laneIndex = isGround ? Math.floor(Math.random() * ROAD_LANES.length) : 0;
++            if (isBoss && isGround) e.laneIndex = 1; // Bosses always in center lane
++            const roadZ = isGround ? ROAD_LANES[e.laneIndex] : 0;
++            
++            e.position.set(playerPos[0] + 50, e.baseY, roadZ);
+             e.velocity.set(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0);
+             
+             const randVariant = Math.random();
+             e.variant = randVariant > 0.8 ? 'sniper' : (randVariant > 0.6 ? 'aggressive' : 'standard');
+-            
+-            // Force re-render so EnemyInstance picks up the new type
+-            setSpawnCount(c => c + 1);
+-            if (isGround) console.log(`GROUND SPAWN: ${e.type} at ${e.position.x}`);
++            if (isBoss) e.variant = 'aggressive';
+         }
+     }
+ 
+     // Update Enemies
++    let bossFound = false;
++    let bossHpPct = 0;
++    
+     for (let i = 0; i < enemies.length; i++) {
+         const e = enemies[i] as EnemyData;
+-        if (!e.active) continue;
++        if (isBossType(e.type)) {
++            bossFound = true;
++            let baseHealthMult = 15.0;
++            if (e.type === 'mega_tank') baseHealthMult = 15.0;
++            if (e.type === 'heavy_gunship') baseHealthMult = 18.0;
++            if (e.type === 'blackshark') baseHealthMult = 20.0;
++            if (e.type === 'mega_missile_truck') baseHealthMult = 25.0;
++            if (e.type === 'blackshark_twin') baseHealthMult = 30.0;
++            if (e.type === 'blackshark_final') baseHealthMult = 40.0;
+ 
+-        e.stateTimer += delta;
+-        
+-        // AI Logic
+-        let approachDist = e.variant === 'aggressive' ? 15 : 25;
+-        if (isGroundEnemy(e.type)) {
+-            approachDist = e.variant === 'sniper' ? 35 : 20;
++            const maxHp = GAME_CONSTANTS.ENEMY.HEALTH * baseHealthMult * healthMult;
++            bossHpPct = (e.health / maxHp) * 100;
+         }
+ 
+-        if (e.state === 'approach') {
+-            const speedMult = e.variant === 'aggressive' ? 1.2 : 1.0;
+-            const baseSpeed = isGroundEnemy(e.type) ? (e.type === 'tank' ? 0.8 : (e.type === 'armored_car' ? 1.6 : 1.2)) : (e.type === 'scout' ? 2.5 : (e.type === 'blackshark' ? 1.8 : 1.5));
+-            e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * speedMult * baseSpeed; 
+-            
+-            if (e.position.x - playerPos[0] < approachDist) {
+-                if (!isGroundEnemy(e.type) && (e.type === 'drone' || e.type === 'scout') && e.variant === 'aggressive' && Math.random() > 0.3) {
+-                    e.state = 'kamikaze';
+-                } else if (e.variant === 'sniper' && !isGroundEnemy(e.type)) {
+-                    e.state = 'defensive';
+-                } else {
+-                    e.state = 'attack';
++        e.stateTimer += delta;
++        const dx = e.position.x - playerPos[0];
++        const isGround = isGroundEnemy(e.type);
++
++        // --- NEW AI BEHAVIORS ---
++        switch (e.type) {
++            case 'drone':
++                // Sine wave kamikaze or fast evasive
++                if (e.state === 'approach') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.5;
++                    e.targetY = e.baseY + Math.sin(e.timeOffset + e.stateTimer * 2) * 3;
++                    if (dx < 20) {
++                        e.state = e.variant === 'aggressive' ? 'kamikaze' : 'attack';
++                        e.stateTimer = 0;
++                    }
++                } else if (e.state === 'attack') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 0.5;
++                    e.targetY = playerPos[1] + Math.sin(e.stateTimer * 4) * 4;
++                    if (e.stateTimer > 4) e.state = 'evade';
++                } else if (e.state === 'kamikaze') {
++                    const dir = new THREE.Vector3(playerPos[0] - e.position.x, playerPos[1] - e.position.y, 0).normalize();
++                    e.velocity.copy(dir).multiplyScalar(GAME_CONSTANTS.ENEMY.SPEED * 3.0).add(new THREE.Vector3(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0));
++                } else if (e.state === 'evade') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 2.0;
++                    e.targetY = GAME_CONSTANTS.BOUNDS.Y_MAX;
+                 }
+-                e.stateTimer = 0;
+-            }
+-        } else if (e.state === 'attack') {
+-            const driftAmount = e.variant === 'aggressive' ? 4 : 2;
+-            const driftSpeed = isGroundEnemy(e.type) ? 0.5 : (e.type === 'scout' ? 4 : 2);
+-            
+-            if (isGroundEnemy(e.type)) {
+-                const attackSpeedMod = e.type === 'tank' ? 0.2 : (e.type === 'armored_car' ? 1.5 : 0.8);
+-                e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * attackSpeedMod;
+-                e.targetY = 0.0;
+-            } else {
+-                e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - 1 + Math.sin(e.stateTimer * driftSpeed + e.timeOffset) * driftAmount;
+-                const verticalDrift = e.variant === 'aggressive' ? 7 : 4;
+-                e.targetY = playerPos[1] + Math.sin(e.stateTimer * 2 + e.timeOffset) * verticalDrift;
+-            }
+-            
+-            const attackDuration = e.variant === 'aggressive' ? 8.0 : 5.0;
+-            if (e.stateTimer > attackDuration) {
+-                e.state = 'evade';
+-                e.stateTimer = 0;
+-            }
+-        } else if (e.state === 'defensive') {
+-            if (isGroundEnemy(e.type)) {
+-                e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED + 1.5;
+-                e.targetY = 0.0;
+-            } else {
+-                e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED + 2 + Math.sin(e.stateTimer) * 2;
+-                e.targetY = playerPos[1] + Math.cos(e.stateTimer * 3 + e.timeOffset) * 6;
+-            }
+-            
+-            if (e.stateTimer > 7.0 || e.position.x - playerPos[0] > 60) {
+-                e.state = 'approach';
+-                e.stateTimer = 0;
+-            }
+-        } else if (e.state === 'kamikaze') {
+-            if (isGroundEnemy(e.type)) {
+-                e.state = 'attack';
+-                e.stateTimer = 0;
+-            } else {
+-                const dir = new THREE.Vector3(playerPos[0] - e.position.x, playerPos[1] - e.position.y, 0).normalize();
+-                e.velocity.copy(dir).multiplyScalar(GAME_CONSTANTS.ENEMY.SPEED * 4.0).add(new THREE.Vector3(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0));
++                break;
+                 
+-                if (e.position.x < playerPos[0] - 5) {
+-                    e.state = 'evade';
+-                    e.stateTimer = 0;
++            case 'scout':
++                // Hit and run strafing
++                if (e.state === 'approach') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 2.5;
++                    if (dx < 25) { e.state = 'strafe'; e.stateTimer = 0; }
++                } else if (e.state === 'strafe') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - 1;
++                    e.targetY = playerPos[1] + Math.cos(e.stateTimer * 3) * 5;
++                    if (e.stateTimer > 3) { e.state = 'retreat'; e.stateTimer = 0; }
++                } else if (e.state === 'retreat') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED + GAME_CONSTANTS.ENEMY.SPEED * 1.5; // Fly forward away
++                    e.targetY = GAME_CONSTANTS.BOUNDS.Y_MAX;
++                    if (dx > 60) e.active = false;
+                 }
+-            }
+-        } else if (e.state === 'evade') {
+-            const evadeSpeed = e.variant === 'aggressive' ? 1.5 : 2.0;
+-            if (isGroundEnemy(e.type)) {
+-                e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * evadeSpeed * 0.8;
+-                e.targetY = 0.0;
+-            } else {
+-                e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * evadeSpeed * 1.5; 
+-                e.targetY = e.baseY + Math.sin(e.stateTimer + e.timeOffset) * 5;
+-            }
++                break;
++                
++            case 'helicopter':
++                // Standard hover and shoot
++                if (e.state === 'approach') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.2;
++                    if (dx < 15) { e.state = 'attack'; e.stateTimer = 0; }
++                } else if (e.state === 'attack') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - 0.5 + Math.sin(e.stateTimer) * 2;
++                    e.targetY = playerPos[1] + Math.sin(e.stateTimer * 0.5) * 3;
++                    if (e.stateTimer > 6) { e.state = 'evade'; e.stateTimer = 0; }
++                } else if (e.state === 'evade') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.5;
++                    e.targetY = e.baseY;
++                }
++                break;
++                
++            case 'gunship':
++            case 'heavy_gunship':
++                // Flying fortress, slow advance, burst fire
++                if (e.state === 'approach') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 0.6;
++                    if (dx < 25) { e.state = 'burst_fire'; e.stateTimer = 0; }
++                } else if (e.state === 'burst_fire') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 0.2;
++                    e.targetY = playerPos[1] + 2; // Stays slightly above
++                    if (e.stateTimer > 8) { e.state = 'approach'; e.stateTimer = 0; e.baseY = e.targetY; }
++                }
++                break;
++                
++            case 'blackshark':
++            case 'blackshark_twin':
++            case 'blackshark_final':
++                // Boss behavior
++                if (e.state === 'approach') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.8;
++                    if (dx < 20) { e.state = 'attack'; e.stateTimer = 0; }
++                } else if (e.state === 'attack') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED + Math.sin(e.stateTimer) * 5; // Swoop back and forth
++                    e.targetY = playerPos[1] + Math.cos(e.stateTimer * 1.5) * 6;
++                    
++                    // Periodic shields
++                    if (e.health < GAME_CONSTANTS.ENEMY.HEALTH * 15 * 0.5 && e.stateTimer > 10) {
++                        e.state = 'shield'; e.stateTimer = 0;
++                    }
++                } else if (e.state === 'shield') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED;
++                    e.targetY = GAME_CONSTANTS.BOUNDS.Y_MAX - 2;
++                    e.shieldActive = true;
++                    if (e.stateTimer > 5) { e.state = 'attack'; e.stateTimer = 0; e.shieldActive = false; }
++                }
++                break;
++                
++            case 'tank':
++            case 'mega_tank':
++                // Slow ground advance
++                if (e.state === 'approach') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 0.8;
++                    if (dx < 20) { e.state = 'attack'; e.stateTimer = 0; }
++                } else if (e.state === 'attack') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 0.2; // Crawl
++                    if (e.stateTimer > 5) { e.state = 'approach'; e.stateTimer = 0; }
++                }
++                break;
++                
++            case 'armored_car':
++                // Weaves between lanes
++                if (e.state === 'approach') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.5;
++                    e.position.z = ROAD_LANES[e.laneIndex] + Math.sin(e.stateTimer * 2) * 1.5;
++                    if (dx < 15) { e.state = 'attack'; e.stateTimer = 0; }
++                } else if (e.state === 'attack') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 0.8;
++                    e.position.z = Math.sin(e.timeOffset + e.stateTimer) * 3;
++                    if (e.stateTimer > 4) { e.state = 'evade'; e.stateTimer = 0; }
++                } else if (e.state === 'evade') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 2.0;
++                }
++                break;
++                
++            case 'missile_truck':
++            case 'mega_missile_truck':
++                // Snipes from afar
++                if (e.state === 'approach') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.0;
++                    if (dx < 35) { e.state = 'defensive'; e.stateTimer = 0; } // Stop far back
++                } else if (e.state === 'defensive') {
++                    // Match player speed to stay far away
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED;
++                    if (dx < 15) e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED + 2; // Retreat if player gets close
++                    if (e.stateTimer > 8) { e.state = 'evade'; e.stateTimer = 0; } // Prevent getting stuck
++                } else if (e.state === 'evade') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.5; // Fall back and despawn
++                }
++                break;
++                
++            case 'jeep':
++                // Fast rush
++                if (e.state === 'approach') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 2.5;
++                    if (dx < 5) { e.state = 'retreat'; e.stateTimer = 0; } // Zoom past
++                } else if (e.state === 'retreat') {
++                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 3.0; // Keep going fast
++                }
++                break;
+         }
+ 
+         // Apply movement
+-        if (e.state !== 'kamikaze') {
+-            if (isGroundEnemy(e.type)) {
+-                e.velocity.y = 0;
+-                e.position.y = 0.0;
+-            } else {
+-                e.velocity.y = THREE.MathUtils.lerp(e.velocity.y, (e.targetY - e.position.y) * 2, delta * (e.variant === 'aggressive' ? 6 : 4));
+-            }
++        if (e.state !== 'kamikaze' && !isGround) {
++            e.velocity.y = THREE.MathUtils.lerp(e.velocity.y, (e.targetY - e.position.y) * 2, delta * 4);
+         }
+         
+-        if (!isGroundEnemy(e.type)) {
++        e.position.addScaledVector(e.velocity, delta);
++
++        // Enforce bounds for airborne enemies
++        if (!isGround && e.state !== 'kamikaze') {
+             if (e.position.y > GAME_CONSTANTS.BOUNDS.Y_MAX) { e.position.y = GAME_CONSTANTS.BOUNDS.Y_MAX; e.velocity.y = 0; }
+             if (e.position.y < GAME_CONSTANTS.BOUNDS.Y_MIN) { e.position.y = GAME_CONSTANTS.BOUNDS.Y_MIN; e.velocity.y = 0; }
+         }
+-
+-        e.position.addScaledVector(e.velocity, delta);
+-        if (isGroundEnemy(e.type)) e.position.y = 0; else e.position.z = 0;
++        
++        if (isGround) {
++            e.position.y = e.baseY; // Hard lock to ground Y offset
++            e.velocity.y = 0;
++            // Z controlled by specific AI (e.g. armored car weaving) or fixed lane
++        } else {
++            e.position.z = 0;
++        }
+ 
+         // Fire bullets
+         e.fireTimer += delta;
+-        const fireRateMult = e.variant === 'aggressive' ? 0.7 : (e.variant === 'sniper' ? 1.5 : 1.0);
+-        const baseFireRate = isGroundEnemy(e.type) ? (e.type === 'tank' ? 3.0 : 2.0) : (e.type === 'scout' ? 1.0 : 1.8);
+-        const currentFireRate = (baseFireRate * fireRateMult) / Math.sqrt(difficulty);
++        
++        let currentFireRate = 1.0 / fireRateMult;
++        let shouldFire = false;
++        
++        switch(e.type) {
++            case 'drone':
++                currentFireRate *= 1.5;
++                shouldFire = (e.state === 'attack' || e.state === 'kamikaze') && dx > 0;
++                break;
++            case 'scout':
++                currentFireRate *= 0.8;
++                shouldFire = e.state === 'strafe' && dx > 0;
++                break;
++            case 'helicopter':
++                currentFireRate *= 1.8;
++                shouldFire = e.state === 'attack' && dx > 0;
++                break;
++            case 'gunship':
++            case 'heavy_gunship':
++                currentFireRate *= 0.3; // Very fast bursts
++                shouldFire = e.state === 'burst_fire' && dx > 0;
++                if (shouldFire && e.fireTimer > currentFireRate) {
++                    e.burstCount++;
++                    if (e.burstCount > 5) {
++                        e.fireTimer = -2.0; // Cooldown after burst
++                        e.burstCount = 0;
++                    }
++                }
++                break;
++            case 'blackshark':
++            case 'blackshark_twin':
++            case 'blackshark_final':
++                currentFireRate *= 0.8;
++                shouldFire = e.state === 'attack' && !e.shieldActive && dx > -5;
++                break;
++            case 'tank':
++            case 'mega_tank':
++                currentFireRate *= 3.0;
++                shouldFire = e.state === 'attack' && dx > 0;
++                break;
++            case 'armored_car':
++                currentFireRate *= 0.5;
++                shouldFire = e.state === 'attack' && dx > 0;
++                break;
++            case 'missile_truck':
++            case 'mega_missile_truck':
++                currentFireRate *= 4.0; // Slow reload
++                shouldFire = e.state === 'defensive' && dx > 0;
++                break;
++            case 'jeep':
++                currentFireRate *= 1.0;
++                shouldFire = e.state === 'approach' && dx > 0 && dx < 20;
++                break;
++        }
+ 
+-        if (e.fireTimer > currentFireRate && e.state === 'attack' && e.position.x > playerPos[0]) {
++        if (e.fireTimer > currentFireRate && shouldFire) {
+             e.fireTimer = 0;
+             const b = enemyBullets.find(bullet => !bullet.active);
+             if (b) {
+                 b.active = true;
+-                // Model-specific bullet spawn offsets (relative to center)
+                 let spawnOffset = new THREE.Vector3(0, 0.5, 0);
+                 if (e.type === 'tank') spawnOffset.set(-2.2, 0.8, 0);
+                 else if (e.type === 'armored_car') spawnOffset.set(-1.8, 0.8, 0);
+@@ -255,13 +461,13 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
+                 b.position.copy(spawnPos);
+                 
+                 let targetPos = new THREE.Vector3(playerPos[0] + 5, playerPos[1], 0);
+-                if (isGroundEnemy(e.type)) {
+-                    targetPos.y += (Math.random() - 0.5) * 6; // High vertical spread for ground
++                if (isGround) {
++                    targetPos.y += (Math.random() - 0.5) * 6;
+                     targetPos.x += (Math.random() - 0.5) * 8;
+                 }
+ 
+                 const dir = targetPos.sub(spawnPos).normalize();
+-                let bulletSpeedMult = e.type === 'tank' ? 1.2 : 0.6;
++                let bulletSpeedMult = e.type === 'tank' || e.type === 'missile_truck' ? 1.2 : 0.6;
+                 b.velocity.copy(dir).multiplyScalar(GAME_CONSTANTS.BULLET.SPEED * bulletSpeedMult).add(new THREE.Vector3(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0));
+                 b.lifetime = GAME_CONSTANTS.BULLET.LIFETIME * 2.0;
+                 
+@@ -270,6 +476,7 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
+         }
+         
+         if (e.position.x < playerPos[0] - 40) e.active = false;
++        if (e.position.x > playerPos[0] + 120) e.active = false; // despawn if too far ahead
+     }
+     
+     // Update Bullets
+@@ -281,6 +488,21 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
+             if (b.lifetime <= 0) b.active = false;
+         }
+     }
++    
++    let bossName = "UNKNOWN BOSS";
++    const bossEntity = enemies.find(e => e.active && isBossType(e.type));
++    if (bossEntity) {
++        if (bossEntity.type === 'mega_tank') bossName = "MEGA TANK";
++        if (bossEntity.type === 'heavy_gunship') bossName = "HEAVY GUNSHIP";
++        if (bossEntity.type === 'blackshark') bossName = "BLACK SHARK";
++        if (bossEntity.type === 'mega_missile_truck') bossName = "MEGA MISSILE TRUCK";
++        if (bossEntity.type === 'blackshark_twin') bossName = "TWIN SHARKS";
++        if (bossEntity.type === 'blackshark_final') bossName = "FINAL BLACK SHARK";
++    }
++
++    if (bossFound !== useStore.getState().bossActive || Math.abs(bossHpPct - useStore.getState().bossHealthPercent) > 1 || bossName !== useStore.getState().bossName) {
++        useStore.getState().setBossState(bossFound, bossHpPct, bossName);
++    }
+   });
+ 
+   return (
+@@ -292,7 +514,7 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
+   );
+ }
+ 
+-function EnemyInstance({ enemy }: { enemy: any }) {
++function EnemyInstance({ enemy }: { enemy: EnemyData }) {
+   const groupRef = useRef<THREE.Group>(null);
+   const turretRef = useRef<THREE.Group>(null);
+   
+@@ -302,7 +524,8 @@ function EnemyInstance({ enemy }: { enemy: any }) {
+       groupRef.current.visible = enemy.active;
+       
+       if (enemy.active) {
+-          if (isGroundEnemy(enemy.type)) {
++          const isGround = isGroundEnemy(enemy.type);
++          if (isGround) {
+               const playerPos = useStore.getState().playerPos;
+               if (turretRef.current && (enemy.type === 'tank' || enemy.type === 'armored_car')) {
+                   const dx = playerPos[0] - enemy.position.x;
+@@ -322,7 +545,7 @@ function EnemyInstance({ enemy }: { enemy: any }) {
+               const bounceAmp = enemy.type === 'tank' ? 0.015 : 0.03;
+               const bounce = Math.sin(enemy.position.x * bounceFreq) * bounceAmp * (speedRatio > 0.1 ? 1 : 0);
+               
+-              groupRef.current.position.y = enemy.position.y + Math.max(0, bounce); 
++              groupRef.current.position.y = enemy.baseY + Math.max(0, bounce); 
+               groupRef.current.rotation.z = bounce * 0.5;
+               groupRef.current.rotation.x = Math.cos(enemy.position.x * (bounceFreq * 0.7)) * (bounceAmp * 0.3);
+           } else {
+@@ -342,25 +565,28 @@ function EnemyInstance({ enemy }: { enemy: any }) {
+       {enemy.active && enemy.state === 'kamikaze' && (
+         <pointLight position={[0, 0, 0]} distance={5} intensity={5} color="#ff0000" />
+       )}
+-      {enemy.type === 'drone' ? (
+-        <EnemyDroneModel rotation={[0, -Math.PI / 2, 0]} scale={1.8} />
+-      ) : enemy.type === 'tank' ? (
+-        <EnemyTankModel ref={turretRef} rotation={[0, -Math.PI / 2, 0]} />
+-      ) : enemy.type === 'armored_car' ? (
+-        <EnemyArmoredCarModel ref={turretRef} rotation={[0, Math.PI, 0]} />
+-      ) : enemy.type === 'missile_truck' ? (
+-        <EnemyMissileTruckModel ref={turretRef} rotation={[0, Math.PI, 0]} />
+-      ) : enemy.type === 'jeep' ? (
+-        <EnemyJeepModel rotation={[0, Math.PI, 0]} />
+-      ) : enemy.type === 'gunship' ? (
+-        <EnemyGunshipModel rotation={[0, 0, 0]} />
+-      ) : enemy.type === 'scout' ? (
+-        <EnemyScoutHeliModel rotation={[0, 0, 0]} scale={1.5} />
+-      ) : enemy.type === 'blackshark' ? (
+-        <EnemyBlackSharkModel rotation={[0, -Math.PI / 2, 0]} />
+-      ) : (
+-        <EnemyHelicopterModel rotation={[0, -Math.PI / 2, 0]} />
++      {enemy.shieldActive && (
++        <mesh>
++          <sphereGeometry args={[2.5, 16, 16]} />
++          <meshBasicMaterial color="#3b82f6" transparent opacity={0.3} wireframe />
++        </mesh>
+       )}
++      
++      {/* Dynamic Model Rendering without React State updates */}
++      <group visible={enemy.type === 'drone'}><EnemyDroneModel rotation={[0, -Math.PI / 2, 0]} scale={1.8} /></group>
++      <group visible={enemy.type === 'tank'}><EnemyTankModel ref={turretRef} rotation={[0, -Math.PI / 2, 0]} /></group>
++      <group visible={enemy.type === 'mega_tank'}><EnemyMegaTankModel ref={turretRef} rotation={[0, -Math.PI / 2, 0]} /></group>
++      <group visible={enemy.type === 'armored_car'}><EnemyArmoredCarModel ref={turretRef} rotation={[0, Math.PI, 0]} /></group>
++      <group visible={enemy.type === 'missile_truck'}><EnemyMissileTruckModel ref={turretRef} rotation={[0, Math.PI, 0]} /></group>
++      <group visible={enemy.type === 'mega_missile_truck'}><EnemyMegaMissileTruckModel ref={turretRef} rotation={[0, Math.PI, 0]} /></group>
++      <group visible={enemy.type === 'jeep'}><EnemyJeepModel rotation={[0, Math.PI, 0]} /></group>
++      <group visible={enemy.type === 'gunship'}><EnemyGunshipModel rotation={[0, 0, 0]} /></group>
++      <group visible={enemy.type === 'heavy_gunship'}><EnemyHeavyGunshipModel rotation={[0, 0, 0]} /></group>
++      <group visible={enemy.type === 'scout'}><EnemyScoutHeliModel rotation={[0, 0, 0]} /></group>
++      <group visible={enemy.type === 'helicopter'}><EnemyHelicopterModel rotation={[0, -Math.PI / 2, 0]} scale={1.5} /></group>
++      <group visible={enemy.type === 'blackshark'}><EnemyBlackSharkModel rotation={[0, -Math.PI / 2, 0]} scale={1.1} /></group>
++      <group visible={enemy.type === 'blackshark_twin'}><EnemyTwinBlackSharkModel rotation={[0, -Math.PI / 2, 0]} scale={1.1} /></group>
++      <group visible={enemy.type === 'blackshark_final'}><EnemyFinalBlackSharkModel rotation={[0, -Math.PI / 2, 0]} scale={1.1} /></group>
+     </group>
+   );
+ }
+diff --git a/src/components/entities/Player.tsx b/src/components/entities/Player.tsx
+index 5088485..f249257 100644
+--- a/src/components/entities/Player.tsx
++++ b/src/components/entities/Player.tsx
+@@ -26,6 +26,9 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
+   const fireTimer = useRef(0);
+   const missileTimer = useRef(0);
+   const isMouseDown = useRef(false);
++  const hitAnimTimer = useRef(0);
++  const prevHealth = useRef(100);
++  const exploded = useRef(false);
+   const respawnCooldown = useRef(0);
+   const blinkTimer = useRef(0);
+ 
+@@ -62,48 +65,79 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
+     // Tick mission time
+     state.tickMissionTime(delta);
+ 
++    // Hit Animation Trigger
++    if (state.health < prevHealth.current && state.health > 0) {
++        hitAnimTimer.current = 0.4;
++    }
++    prevHealth.current = state.health;
++
+     // Tick invulnerability
+     state.tickInvulnerability(delta);
+ 
+-    // Handle respawning state
+-    if (state.respawning) {
+-      respawnCooldown.current += delta;
++    // ΓöÇΓöÇΓöÇ DEATH & RESPAWNING ANIMATION ΓöÇΓöÇΓöÇ
++    if (state.gameOver || state.gameState === 'gameover' || state.respawning) {
++      // Crash sequence
++      velocity.current.x = THREE.MathUtils.lerp(velocity.current.x, GAME_CONSTANTS.PLAYER.SCROLL_SPEED * 0.5, delta);
++      velocity.current.y -= 25 * delta; // Heavy gravity pull
+       
+-      // Wait 1 second before respawning (death pause)
+-      if (respawnCooldown.current > 1.0) {
+-        respawnCooldown.current = 0;
+-        
+-        // Reset position safely above the road
+-        const currentX = groupRef.current.position.x;
+-        groupRef.current.position.set(currentX - 5, 8, 0);
+-        velocity.current.set(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0);
+-        
+-        // Clear all keys to prevent stuck inputs
+-        Object.keys(keys.current).forEach(k => {
+-          keys.current[k as keyof typeof keys.current] = false;
+-        });
+-        
+-        state.respawnPlayer();
+-        audioManager.playExplosion(); // Big explosion on death
+-        
+-        // Spawn respawn effect
+-        spawnEffect(effects, groupRef.current.position.clone(), 'explosion', 3.0, '#60a5fa');
++      groupRef.current.position.addScaledVector(velocity.current, delta);
++      groupRef.current.rotation.z -= delta * 4; // Nose dives
++      groupRef.current.rotation.x += delta * 6; // Wild roll
++      
++      // Trail of smoke/fire
++      if (Math.random() < 0.4) {
++          spawnEffect(effects, groupRef.current.position.clone(), 'muzzle', 1.0, '#ea580c');
+       }
+-      return;
+-    }
+ 
+-    // If game over, freeze movement
+-    if (state.gameOver || state.gameState === 'gameover') {
+-      // Slowly drift downward during game over
+-      velocity.current.x = THREE.MathUtils.lerp(velocity.current.x, 0, delta * 2);
+-      velocity.current.y = THREE.MathUtils.lerp(velocity.current.y, -3, delta);
+-      groupRef.current.position.addScaledVector(velocity.current, delta);
+-      groupRef.current.rotation.z += delta * 2; // Spiral
++      // Hit the ground
++      if (groupRef.current.position.y <= 0 && !exploded.current) {
++          groupRef.current.position.y = 0;
++          spawnEffect(effects, groupRef.current.position.clone(), 'explosion_large', 4.0, '#ea580c');
++          audioManager.playExplosionLarge();
++          exploded.current = true;
++          if (heliRef.current) heliRef.current.visible = false;
++      }
++      
++      if (state.respawning) {
++          respawnCooldown.current += delta;
++          if (respawnCooldown.current > 2.0) { // 2 second crash view
++              respawnCooldown.current = 0;
++              exploded.current = false;
++              
++              const currentX = groupRef.current.position.x;
++              groupRef.current.position.set(currentX - 5, 8, 0);
++              groupRef.current.rotation.set(0, 0, 0);
++              velocity.current.set(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0);
++              
++              Object.keys(keys.current).forEach(k => {
++                keys.current[k as keyof typeof keys.current] = false;
++              });
++              
++              state.respawnPlayer();
++              audioManager.playExplosion();
++              spawnEffect(effects, groupRef.current.position.clone(), 'explosion', 3.0, '#60a5fa');
++          }
++      }
+       return;
+     }
+     
+     if (state.hitStop > 0 || state.paused) return;
+ 
++    // ΓöÇΓöÇΓöÇ Hit Jolt Animation ΓöÇΓöÇΓöÇ
++    if (hitAnimTimer.current > 0) {
++      hitAnimTimer.current -= delta;
++      // Add wild shake rotation
++      groupRef.current.rotation.z += (Math.random() - 0.5) * 0.5;
++      groupRef.current.rotation.x += (Math.random() - 0.5) * 0.5;
++      
++      // Flash red
++      if (heliRef.current) {
++         heliRef.current.scale.setScalar(1.0 + Math.random() * 0.1);
++      }
++    } else if (heliRef.current) {
++      heliRef.current.scale.setScalar(1.0);
++    }
++
+     // ΓöÇΓöÇΓöÇ Invulnerability blink effect ΓöÇΓöÇΓöÇ
+     if (state.invulnerable && heliRef.current) {
+       blinkTimer.current += delta * 15; // Fast blink
+@@ -254,18 +288,8 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
+                 spawnEffect(effects, m.position.clone().add(new THREE.Vector3(-0.2, 0.2, 0)), 'smoke', 0.8);
+             }
+ 
+-            // Ground explosion if hit road (y=0)
+-            if (m.position.y <= 0) {
+-                m.active = false;
+-                spawnEffect(effects, m.position, 'explosion', 3.0, '#ea580c');
+-                state.addShake(1.5);
+-                // The collision manager will handle the actual damage area of effect since we only render here.
+-                // Wait, collision manager needs to know when it explodes. We'll leave it to collision manager to check.
+-                // Actually if we deactivate it here, collision manager won't see it hitting the ground. 
+-                // So we'll let CollisionManager deactivate it when y <= 0.
+-                m.active = true; // Undo deactivation so CollisionManager handles explosion damage.
+-                m.position.y = 0; // Lock to ground for 1 frame
+-            }
++            // Ground explosion is handled by CollisionManager
++            if (m.lifetime <= 0) m.active = false;
+             if (m.lifetime <= 0) m.active = false;
+         }
+     }
+diff --git a/src/components/models/EnemyModels.tsx b/src/components/models/EnemyModels.tsx
+index d645567..c506e3e 100644
+--- a/src/components/models/EnemyModels.tsx
++++ b/src/components/models/EnemyModels.tsx
+@@ -912,3 +912,62 @@ export function EnemyBlackSharkModel(props: any) {
+     </group>
+   );
+ }
++
++// ==========================================
++// BOSS VARIANTS (Levels 5, 10, 15, 20, 25, 30)
++// ==========================================
++
++export const EnemyMegaTankModel = React.forwardRef((props: any, ref: any) => {
++  return (
++    <group {...props} scale={3.0}>
++      {/* A massive 3x scale tank for Level 5 */}
++      <EnemyTankModel ref={ref} />
++    </group>
++  );
++});
++
++export const EnemyHeavyGunshipModel = React.forwardRef((props: any, ref: any) => {
++  return (
++    <group {...props} scale={2.5}>
++      {/* A massive 2.5x scale gunship for Level 10 */}
++      <EnemyGunshipModel ref={ref} />
++    </group>
++  );
++});
++
++export const EnemyMegaMissileTruckModel = React.forwardRef((props: any, ref: any) => {
++  return (
++    <group {...props} scale={2.5}>
++      {/* Level 20 Boss */}
++      <EnemyMissileTruckModel ref={ref} />
++    </group>
++  );
++});
++
++export const EnemyTwinBlackSharkModel = React.forwardRef((props: any, ref: any) => {
++  return (
++    <group {...props} ref={ref}>
++      {/* Level 25 Boss - Two sharks attached together basically, or just one extra large */}
++      <group position={[4, 0, 0]}>
++        <EnemyBlackSharkModel />
++      </group>
++      <group position={[-4, 0, 0]}>
++        <EnemyBlackSharkModel />
++      </group>
++    </group>
++  );
++});
++
++export const EnemyFinalBlackSharkModel = React.forwardRef((props: any, ref: any) => {
++  return (
++    <group {...props} scale={2.0} ref={ref}>
++      {/* Level 30 Final Boss - Scaled up and menacing */}
++      <EnemyBlackSharkModel />
++      {/* Added glowing red aura / shield visual to the final boss */}
++      <mesh position={[0, 0, 0]}>
++        <sphereGeometry args={[2.5, 16, 16]} />
++        <meshBasicMaterial color="#ff0000" wireframe transparent opacity={0.15} />
++      </mesh>
++    </group>
++  );
++});
+diff --git a/src/components/models/HelicopterModel.tsx b/src/components/models/HelicopterModel.tsx
+index 1796e01..bb922c1 100644
+--- a/src/components/models/HelicopterModel.tsx
++++ b/src/components/models/HelicopterModel.tsx
+@@ -3,237 +3,369 @@ import { useFrame } from '@react-three/fiber';
+ import * as THREE from 'three';
+ 
+ /**
+- * PS1-style Kamov Ka-50 "Black Shark" 
+- * Tail assembly corrected to match reference image layout.
++ * Detailed Low-Poly Kamov Ka-50 "Black Shark"
++ * Enhanced with weapons, optics, and emissive lights.
+  */
+ export default function HelicopterModel(props: any) {
+-  const rotorLowerRef = useRef<THREE.Group>(null);
+-  const rotorUpperRef = useRef<THREE.Group>(null);
+-
+-  // Palette from reference
+-  const colors = {
+-    olive: "#4b5332",       // Base Camo Green
+-    deepGreen: "#2d341c",   // Dark Camo Green
+-    slate: "#3c444c",       // Mechanical Gray/Blue
+-    brown: "#2b261d",       // Dark Accent
+-    orange: "#d97706",      // Numbering/Warning
+-    yellow: "#eab308",      // Blade tips
+-    red: "#b91c1c",         // Star detail
+-  };
++  const groupRef = useRef<THREE.Group>(null);
++  const topRotorRef = useRef<THREE.Group>(null);
++  const bottomRotorRef = useRef<THREE.Group>(null);
+ 
+   useFrame((state, delta) => {
+-    if (rotorLowerRef.current) rotorLowerRef.current.rotation.y -= 22 * delta;
+-    if (rotorUpperRef.current) rotorUpperRef.current.rotation.y += 22 * delta;
++    if (topRotorRef.current) topRotorRef.current.rotation.y -= 15 * delta;
++    if (bottomRotorRef.current) bottomRotorRef.current.rotation.y += 15 * delta;
+   });
+ 
++  // Updated color palette
++  const baseGrey = "#4a4d50"; // Slightly darker camo base
++  const camoDark = "#2a2d30"; // Camo pattern color
++  const darkGrey = "#1a1d20";
++  const black = "#0a0a0a";
++  const red = "#aa1111";
++  const white = "#dddddd";
++  const glass = "#05080c";
++  const gold = "#d4af37";
++
+   return (
+-    <group {...props}>
+-      {/* ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-          MAIN HULL (Faceted & Aggressive)
+-          ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
++    <group {...props} ref={groupRef} scale={1.2} rotation={[0, Math.PI / 2, 0]}>
+       
+-      {/* Nose Section - Stepped Faceted Wedge */}
++      {/* ΓöÇΓöÇΓöÇ MAIN FUSELAGE ΓöÇΓöÇΓöÇ */}
++      <mesh position={[0, 0, -0.4]} castShadow receiveShadow>
++        <boxGeometry args={[0.9, 0.8, 2.4]} />
++        <meshStandardMaterial color={baseGrey} flatShading />
++      </mesh>
++      {/* Camo stripe */}
++      <mesh position={[0, 0.41, -0.4]} castShadow>
++        <boxGeometry args={[0.91, 0.05, 1.2]} />
++        <meshStandardMaterial color={camoDark} flatShading />
++      </mesh>
++      
++      {/* Side bulges (Ammunition & Avionics) */}
++      <mesh position={[0.5, -0.1, -0.2]} castShadow>
++        <boxGeometry args={[0.3, 0.5, 1.8]} />
++        <meshStandardMaterial color={darkGrey} flatShading />
++      </mesh>
++      <mesh position={[-0.5, -0.1, -0.2]} castShadow>
++        <boxGeometry args={[0.3, 0.5, 1.8]} />
++        <meshStandardMaterial color={darkGrey} flatShading />
++      </mesh>
++
++      {/* ΓöÇΓöÇΓöÇ 30mm AUTO CANNON (Right Side Mounted) ΓöÇΓöÇΓöÇ */}
++      <group position={[-0.55, -0.4, 0.5]}>
++         {/* Cannon Mount */}
++         <mesh castShadow>
++           <boxGeometry args={[0.2, 0.3, 0.6]} />
++           <meshStandardMaterial color={black} />
++         </mesh>
++         {/* Cannon Barrel */}
++         <mesh position={[0, 0, 0.8]} rotation={[Math.PI / 2, 0, 0]} castShadow>
++           <cylinderGeometry args={[0.04, 0.04, 1.6, 6]} />
++           <meshStandardMaterial color={black} />
++         </mesh>
++         {/* Muzzle Brake */}
++         <mesh position={[0, 0, 1.6]} rotation={[Math.PI / 2, 0, 0]} castShadow>
++           <cylinderGeometry args={[0.06, 0.06, 0.2, 6]} />
++           <meshStandardMaterial color={black} />
++         </mesh>
++      </group>
++
++      {/* ΓöÇΓöÇΓöÇ NOSE & COCKPIT ΓöÇΓöÇΓöÇ */}
+       <group position={[0, 0, 1.0]}>
+-        <mesh castShadow position={[0, -0.1, 1.0]} rotation={[0.2, 0, 0]}>
+-          <boxGeometry args={[0.4, 0.2, 0.6]} />
+-          <meshStandardMaterial color={colors.deepGreen} flatShading />
++        {/* Cockpit base */}
++        <mesh position={[0, 0.2, 0.2]} rotation={[-0.3, 0, 0]} castShadow>
++          <boxGeometry args={[0.8, 0.6, 1.2]} />
++          <meshStandardMaterial color={baseGrey} flatShading />
+         </mesh>
+-        <mesh castShadow position={[0, 0, 0.4]}>
+-          <boxGeometry args={[0.65, 0.6, 1.0]} />
+-          <meshStandardMaterial color={colors.olive} flatShading />
++        
++        {/* Canopy Glass */}
++        <mesh position={[0, 0.5, 0.2]} rotation={[0.4, 0, 0]} castShadow>
++          <boxGeometry args={[0.6, 0.4, 0.9]} />
++          <meshStandardMaterial color={glass} flatShading roughness={0.1} metalness={0.9} />
+         </mesh>
+-        <mesh castShadow position={[0.2, 0.3, 0.6]} rotation={[Math.PI / 2, 0, 0]}>
+-          <cylinderGeometry args={[0.02, 0.02, 1.2, 4]} />
+-          <meshStandardMaterial color={colors.slate} flatShading />
++
++        {/* HUD Glow inside cockpit */}
++        <mesh position={[0, 0.35, 0.55]} rotation={[0.3, 0, 0]}>
++           <planeGeometry args={[0.3, 0.2]} />
++           <meshBasicMaterial color="#00ff00" transparent opacity={0.6} />
++        </mesh>
++
++        {/* Extended Nose */}
++        <mesh position={[0, -0.1, 0.8]} rotation={[0.2, 0, 0]} castShadow>
++          <boxGeometry args={[0.6, 0.5, 1.0]} />
++          <meshStandardMaterial color={baseGrey} flatShading />
+         </mesh>
+-        <mesh castShadow position={[0, -0.4, 0.6]} rotation={[Math.PI / 4, 0, 0]}>
+-          <boxGeometry args={[0.18, 0.18, 0.25]} />
+-          <meshStandardMaterial color={colors.slate} flatShading />
++
++        {/* Targeting Pod (Shkval Optics) under nose */}
++        <group position={[0, -0.4, 0.9]}>
++          <mesh castShadow>
++            <cylinderGeometry args={[0.2, 0.2, 0.4, 8]} rotation={[0, 0, Math.PI / 2]} />
++            <meshStandardMaterial color={darkGrey} />
++          </mesh>
++          <mesh position={[0, 0, 0.2]}>
++            <sphereGeometry args={[0.15, 8, 8]} />
++            <meshStandardMaterial color="#000" />
++          </mesh>
++          <mesh position={[0, 0, 0.3]}>
++             <circleGeometry args={[0.08, 8]} />
++             <meshBasicMaterial color="#ff0000" />
++          </mesh>
++        </group>
++
++        {/* Pitot Tube (Needle) */}
++        <mesh position={[0, -0.1, 1.8]} rotation={[Math.PI / 2, 0, 0]} castShadow>
++          <cylinderGeometry args={[0.02, 0.05, 1.0, 8]} />
++          <meshStandardMaterial color={black} />
+         </mesh>
++        
++        {/* Shark Mouth (Red Base + White Teeth) */}
++        <group position={[0, -0.15, 0.7]}>
++          <group position={[0.31, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
++             <mesh position={[0, 0, 0]}>
++               <planeGeometry args={[0.8, 0.35]} />
++               <meshStandardMaterial color={red} />
++             </mesh>
++             <mesh position={[0, 0.1, 0.01]}>
++               <planeGeometry args={[0.7, 0.1]} />
++               <meshStandardMaterial color={white} />
++             </mesh>
++             <mesh position={[0, -0.1, 0.01]}>
++               <planeGeometry args={[0.7, 0.1]} />
++               <meshStandardMaterial color={white} />
++             </mesh>
++          </group>
++          <group position={[-0.31, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
++             <mesh position={[0, 0, 0]}>
++               <planeGeometry args={[0.8, 0.35]} />
++               <meshStandardMaterial color={red} />
++             </mesh>
++             <mesh position={[0, 0.1, 0.01]}>
++               <planeGeometry args={[0.7, 0.1]} />
++               <meshStandardMaterial color={white} />
++             </mesh>
++             <mesh position={[0, -0.1, 0.01]}>
++               <planeGeometry args={[0.7, 0.1]} />
++               <meshStandardMaterial color={white} />
++             </mesh>
++          </group>
++        </group>
+       </group>
+ 
+-      {/* Cockpit Canopy */}
+-      <group position={[0, 0.45, 0.5]}>
+-        <mesh castShadow position={[0, -0.1, 0.4]} rotation={[-0.4, 0, 0]}>
+-          <boxGeometry args={[0.6, 0.5, 0.6]} />
+-          <meshStandardMaterial color="#0a1525" flatShading metalness={0.9} roughness={0.1} />
++      {/* ΓöÇΓöÇΓöÇ CENTRAL SPINE / TRANSMISSION HOUSING ΓöÇΓöÇΓöÇ */}
++      {/* Fills the hollow valley between the engines */}
++      <mesh position={[0, 0.45, -0.4]} castShadow>
++         <boxGeometry args={[0.5, 0.3, 1.6]} />
++         <meshStandardMaterial color={baseGrey} flatShading />
++      </mesh>
++
++      {/* ΓöÇΓöÇΓöÇ ENGINES & EXHAUST ΓöÇΓöÇΓöÇ */}
++      <group position={[0, 0.5, -0.6]}>
++        <mesh position={[0.4, 0, 0]} rotation={[Math.PI/2, 0, 0]} castShadow>
++          <cylinderGeometry args={[0.25, 0.25, 1.2, 16]} />
++          <meshStandardMaterial color={camoDark} flatShading />
++        </mesh>
++        <mesh position={[-0.4, 0, 0]} rotation={[Math.PI/2, 0, 0]} castShadow>
++          <cylinderGeometry args={[0.25, 0.25, 1.2, 16]} />
++          <meshStandardMaterial color={camoDark} flatShading />
++        </mesh>
++        {/* Exhausts Nozzles */}
++        <mesh position={[0.45, 0, -0.65]} rotation={[Math.PI/2, 0, 0]} castShadow>
++          <cylinderGeometry args={[0.15, 0.2, 0.3, 16]} />
++          <meshStandardMaterial color={black} />
++        </mesh>
++        <mesh position={[-0.45, 0, -0.65]} rotation={[Math.PI/2, 0, 0]} castShadow>
++          <cylinderGeometry args={[0.15, 0.2, 0.3, 16]} />
++          <meshStandardMaterial color={black} />
+         </mesh>
+-        <mesh castShadow position={[0, 0, -0.1]}>
+-          <boxGeometry args={[0.7, 0.6, 0.7]} />
+-          <meshStandardMaterial color="#0a1525" flatShading metalness={0.9} roughness={0.1} />
++        {/* Glowing Heat inside exhaust */}
++        <mesh position={[0.45, 0, -0.82]} rotation={[Math.PI/2, 0, 0]}>
++          <circleGeometry args={[0.12, 16]} />
++          <meshBasicMaterial color="#ff6600" />
+         </mesh>
+-        <mesh position={[0, 0.3, -0.1]}>
+-          <boxGeometry args={[0.72, 0.08, 0.72]} />
+-          <meshStandardMaterial color={colors.olive} flatShading />
++        <mesh position={[-0.45, 0, -0.82]} rotation={[Math.PI/2, 0, 0]}>
++          <circleGeometry args={[0.12, 16]} />
++          <meshBasicMaterial color="#ff6600" />
+         </mesh>
+       </group>
+ 
+-      {/* Midsection Core */}
+-      <mesh castShadow position={[0, 0.1, -0.3]}>
+-        <boxGeometry args={[1.0, 1.0, 1.6]} />
+-        <meshStandardMaterial color={colors.olive} flatShading />
+-      </mesh>
+-
+-      {/* Red Star Marking on Mid-Rear Fuselage */}
+-      <mesh position={[0.51, 0.1, -0.6]}>
+-        <boxGeometry args={[0.02, 0.22, 0.22]} />
+-        <meshStandardMaterial color={colors.red} flatShading />
+-      </mesh>
++      {/* ΓöÇΓöÇΓöÇ WINGS & WEAPONS ΓöÇΓöÇΓöÇ */}
++      <group position={[0, 0, -0.2]}>
++        {/* Main Stub Wings */}
++        <mesh castShadow rotation={[0, 0, 0]}>
++          <boxGeometry args={[3.4, 0.1, 0.6]} />
++          <meshStandardMaterial color={baseGrey} flatShading />
++        </mesh>
++        
++        {/* Navigation Lights */}
++        <mesh position={[1.7, 0.1, 0.2]}>
++           <sphereGeometry args={[0.05, 8, 8]} />
++           <meshBasicMaterial color="#00ff00" /> {/* Green Starboard */}
++        </mesh>
++        <mesh position={[-1.7, 0.1, 0.2]}>
++           <sphereGeometry args={[0.05, 8, 8]} />
++           <meshBasicMaterial color="#ff0000" /> {/* Red Port */}
++        </mesh>
+ 
+-      {/* Side Engine Pods */}
+-      {[0.55, -0.55].map((x, i) => (
+-        <group key={i} position={[x, 0.3, 0.1]}>
+-          <mesh castShadow rotation={[Math.PI / 2, 0, 0]}>
+-            <cylinderGeometry args={[0.28, 0.28, 0.8, 6]} />
+-            <meshStandardMaterial color={colors.slate} flatShading />
++        {/* Right Wing Weapons */}
++        <group position={[-1.3, -0.15, 0]}>
++          <mesh position={[0.4, -0.1, 0]} rotation={[Math.PI/2, 0, 0]} castShadow>
++            <cylinderGeometry args={[0.2, 0.2, 0.8, 12]} />
++            <meshStandardMaterial color={darkGrey} />
+           </mesh>
+-          <mesh position={[0, 0, 0.35]}>
+-            <boxGeometry args={[0.4, 0.4, 0.1]} />
+-            <meshStandardMaterial color={colors.brown} flatShading />
++          <mesh position={[-0.2, -0.1, 0]} castShadow>
++            <boxGeometry args={[0.4, 0.2, 0.9]} />
++            <meshStandardMaterial color={black} />
+           </mesh>
+-          <mesh position={[x > 0 ? 0.3 : -0.3, 0.1, 0]}>
+-            <boxGeometry args={[0.02, 0.25, 0.35]} />
+-            <meshStandardMaterial color={colors.orange} flatShading />
++          {/* Missile tips */}
++          <mesh position={[-0.2, -0.1, 0.46]} castShadow>
++             <boxGeometry args={[0.3, 0.15, 0.1]} />
++             <meshStandardMaterial color={gold} />
+           </mesh>
+         </group>
+-      ))}
+-
+-      {/* ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-          TAIL ASSEMBLY (Corrected Layout)
+-          ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+-      
+-      {/* Tail Boom - Longer and more tapered */}
+-      <mesh castShadow position={[0, 0.15, -1.6]} rotation={[Math.PI / 2, 0, 0]}>
+-        <cylinderGeometry args={[0.35, 0.18, 2.0, 5]} />
+-        <meshStandardMaterial color={colors.olive} flatShading />
+-      </mesh>
+ 
+-      {/* Horizontal Stabilizers - Moved Forward (Approx halfway along boom) */}
+-      <group position={[0, 0.2, -1.3]}>
+-        <mesh castShadow>
+-          <boxGeometry args={[1.8, 0.08, 0.5]} />
+-          <meshStandardMaterial color={colors.deepGreen} flatShading />
+-        </mesh>
+-        {/* Vertical Tip Fins */}
+-        {[0.9, -0.9].map((x, i) => (
+-          <mesh key={i} position={[x, 0.15, 0]}>
+-            <boxGeometry args={[0.05, 0.45, 0.4]} />
+-            <meshStandardMaterial color={colors.olive} flatShading />
++        {/* Left Wing Weapons */}
++        <group position={[1.3, -0.15, 0]}>
++          <mesh position={[-0.4, -0.1, 0]} rotation={[Math.PI/2, 0, 0]} castShadow>
++            <cylinderGeometry args={[0.2, 0.2, 0.8, 12]} />
++            <meshStandardMaterial color={darkGrey} />
++          </mesh>
++          <mesh position={[0.2, -0.1, 0]} castShadow>
++            <boxGeometry args={[0.4, 0.2, 0.9]} />
++            <meshStandardMaterial color={black} />
++          </mesh>
++          {/* Missile tips */}
++          <mesh position={[0.2, -0.1, 0.46]} castShadow>
++             <boxGeometry args={[0.3, 0.15, 0.1]} />
++             <meshStandardMaterial color={gold} />
+           </mesh>
+-        ))}
++        </group>
++        
++        {/* Wingtip ECM Pods */}
++        <mesh position={[1.75, 0, 0]} rotation={[Math.PI/2, 0, 0]} castShadow>
++          <cylinderGeometry args={[0.1, 0.1, 0.8, 8]} />
++          <meshStandardMaterial color={darkGrey} />
++        </mesh>
++        <mesh position={[-1.75, 0, 0]} rotation={[Math.PI/2, 0, 0]} castShadow>
++          <cylinderGeometry args={[0.1, 0.1, 0.8, 8]} />
++          <meshStandardMaterial color={darkGrey} />
++        </mesh>
+       </group>
+ 
+-      {/* Main Vertical Fin - Placed at the very end */}
+-      <group position={[0, 0.8, -2.6]}>
+-        <mesh castShadow>
+-          <boxGeometry args={[0.1, 1.3, 0.7]} />
+-          <meshStandardMaterial color={colors.olive} flatShading />
++      {/* ΓöÇΓöÇΓöÇ TAIL ASSEMBLY ΓöÇΓöÇΓöÇ */}
++      <group position={[0, 0.2, -1.6]}>
++        {/* Tail Boom (thickened and lengthened to prevent gaps) */}
++        <mesh position={[0, 0, -0.8]} rotation={[-0.05, 0, 0]} castShadow>
++          <boxGeometry args={[0.45, 0.55, 2.2]} />
++          <meshStandardMaterial color={baseGrey} flatShading />
+         </mesh>
+-        {/* Red Star Marking on Fin */}
+-        <mesh position={[0.06, 0.35, 0]}>
+-          <boxGeometry args={[0.02, 0.25, 0.25]} />
+-          <meshStandardMaterial color={colors.red} flatShading />
++        
++        {/* Vertical Fin */}
++        <mesh position={[0, 0.7, -1.4]} rotation={[0.2, 0, 0]} castShadow>
++          <boxGeometry args={[0.1, 1.4, 0.8]} />
++          <meshStandardMaterial color={baseGrey} flatShading />
+         </mesh>
+-        {/* Tail Fin Foot detail */}
+-        <mesh position={[0, -0.65, 0.1]}>
+-          <boxGeometry args={[0.12, 0.1, 0.8]} />
+-          <meshStandardMaterial color={colors.slate} flatShading />
++
++        {/* Tail Strobe Light */}
++        <mesh position={[0, 1.4, -1.5]}>
++           <sphereGeometry args={[0.06, 8, 8]} />
++           <meshBasicMaterial color="#ffffff" />
+         </mesh>
++
++        {/* Horizontal Stabilizer */}
++        <group position={[0, 0.3, -1.3]}>
++          <mesh castShadow>
++            <boxGeometry args={[1.6, 0.08, 0.4]} />
++            <meshStandardMaterial color={baseGrey} flatShading />
++          </mesh>
++          <mesh position={[0.8, 0, 0]} castShadow>
++             <boxGeometry args={[0.05, 0.6, 0.4]} />
++             <meshStandardMaterial color={baseGrey} />
++          </mesh>
++          <mesh position={[-0.8, 0, 0]} castShadow>
++             <boxGeometry args={[0.05, 0.6, 0.4]} />
++             <meshStandardMaterial color={baseGrey} />
++          </mesh>
++        </group>
+       </group>
+ 
+-      {/* ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-          WINGS & WEAPONS
+-          ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+-      
+-      <mesh castShadow position={[0, 0, -0.2]}>
+-        <boxGeometry args={[3.2, 0.18, 0.8]} />
+-        <meshStandardMaterial color={colors.deepGreen} flatShading />
+-      </mesh>
++      {/* ΓöÇΓöÇΓöÇ LANDING GEAR (RETRACTED) ΓöÇΓöÇΓöÇ */}
++      <group position={[0, -0.45, 0]}>
++         {/* Front Gear Pod */}
++         <mesh position={[0, 0, 0.8]} castShadow>
++           <boxGeometry args={[0.3, 0.15, 0.4]} />
++           <meshStandardMaterial color={darkGrey} />
++         </mesh>
++         <mesh position={[0, -0.05, 0.8]}>
++           <cylinderGeometry args={[0.1, 0.1, 0.2, 8]} rotation={[0, 0, Math.PI/2]} />
++           <meshStandardMaterial color={black} />
++         </mesh>
+ 
+-      {[1.2, -1.2].map((x, i) => (
+-        <group key={i} position={[x, -0.25, -0.1]}>
+-          <mesh castShadow rotation={[Math.PI / 2, 0, 0]}>
+-            <cylinderGeometry args={[0.22, 0.22, 0.8, 8]} />
+-            <meshStandardMaterial color={colors.slate} flatShading />
+-          </mesh>
+-          <group position={[x > 0 ? 0.35 : -0.35, -0.1, 0]}>
+-            <mesh castShadow rotation={[Math.PI / 2, 0, 0]}>
+-              <cylinderGeometry args={[0.08, 0.08, 0.9, 4]} />
+-              <meshStandardMaterial color={colors.olive} flatShading />
+-            </mesh>
+-            <mesh position={[0, 0, 0.4]}>
+-              <boxGeometry args={[0.2, 0.2, 0.1]} />
+-              <meshStandardMaterial color={colors.orange} flatShading />
+-            </mesh>
+-          </group>
+-        </group>
+-      ))}
++         {/* Rear Gear Pods */}
++         <mesh position={[0.4, 0, -0.4]} castShadow>
++           <boxGeometry args={[0.2, 0.2, 0.6]} />
++           <meshStandardMaterial color={darkGrey} />
++         </mesh>
++         <mesh position={[0.4, -0.05, -0.4]}>
++           <cylinderGeometry args={[0.15, 0.15, 0.2, 8]} rotation={[0, 0, Math.PI/2]} />
++           <meshStandardMaterial color={black} />
++         </mesh>
+ 
+-      {/* ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-          COAXIAL ROTOR SYSTEM
+-          ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+-      
+-      <group position={[0, 0.6, -0.2]}>
+-        <mesh castShadow>
+-          <cylinderGeometry args={[0.15, 0.18, 1.8, 6]} />
+-          <meshStandardMaterial color={colors.slate} flatShading />
+-        </mesh>
+-
+-        {[0, 0.8].map((yOffset, rotorIdx) => (
+-          <group key={rotorIdx} position={[0, yOffset - 0.1, 0]} ref={rotorIdx === 0 ? rotorLowerRef : rotorUpperRef}>
+-            <mesh>
+-              <cylinderGeometry args={[0.28, 0.3, 0.25, 8]} />
+-              <meshStandardMaterial color={colors.slate} flatShading />
+-            </mesh>
+-            {[0, 1, 2].map((i) => (
+-              <group key={i} rotation={[0, (i * Math.PI * 2) / 3, 0]}>
+-                <mesh position={[0, 0, 2.2]}>
+-                  <boxGeometry args={[0.4, 0.05, 4.2]} />
+-                  <meshStandardMaterial color={colors.slate} flatShading />
+-                </mesh>
+-                <mesh position={[0, 0, 4.35]}>
+-                  <boxGeometry args={[0.42, 0.06, 0.25]} />
+-                  <meshStandardMaterial color={colors.yellow} flatShading />
+-                </mesh>
+-              </group>
+-            ))}
+-          </group>
+-        ))}
++         <mesh position={[-0.4, 0, -0.4]} castShadow>
++           <boxGeometry args={[0.2, 0.2, 0.6]} />
++           <meshStandardMaterial color={darkGrey} />
++         </mesh>
++         <mesh position={[-0.4, -0.05, -0.4]}>
++           <cylinderGeometry args={[0.15, 0.15, 0.2, 8]} rotation={[0, 0, Math.PI/2]} />
++           <meshStandardMaterial color={black} />
++         </mesh>
+       </group>
+ 
+-      {/* ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-          LANDING GEAR
+-          ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+-      
+-      <group position={[0, -0.6, 1.3]}>
+-        <mesh castShadow>
+-          <boxGeometry args={[0.1, 0.6, 0.1]} />
+-          <meshStandardMaterial color={colors.slate} flatShading />
++      {/* ΓöÇΓöÇΓöÇ COAXIAL ROTORS ΓöÇΓöÇΓöÇ */}
++      <group position={[0, 0.9, -0.2]}>
++        {/* Main Mast Base (Thickened to support rotors) */}
++        <mesh position={[0, -0.1, 0]} castShadow>
++           <cylinderGeometry args={[0.18, 0.25, 0.4, 8]} />
++           <meshStandardMaterial color={darkGrey} />
+         </mesh>
+-        <mesh castShadow position={[0, -0.3, 0]} rotation={[0, 0, Math.PI / 2]}>
+-          <cylinderGeometry args={[0.18, 0.18, 0.15, 6]} />
+-          <meshStandardMaterial color="#050505" flatShading />
++        
++        {/* Main Mast */}
++        <mesh position={[0, 0.2, 0]} castShadow>
++           <cylinderGeometry args={[0.1, 0.12, 1.2, 8]} />
++           <meshStandardMaterial color={black} />
+         </mesh>
+-      </group>
+ 
+-      {[0.7, -0.7].map((x, i) => (
+-        <group key={i} position={[x, -0.6, -0.3]}>
++        {/* Bottom Rotor Hub */}
++        <mesh position={[0, 0.4, 0]} castShadow>
++           <cylinderGeometry args={[0.25, 0.25, 0.1, 16]} />
++           <meshStandardMaterial color={darkGrey} />
++        </mesh>
++        <group position={[0, 0.45, 0]} ref={bottomRotorRef}>
++          <mesh castShadow>
++            <boxGeometry args={[4.8, 0.02, 0.2]} />
++            <meshStandardMaterial color={black} />
++          </mesh>
++          <mesh castShadow rotation={[0, Math.PI / 2, 0]}>
++            <boxGeometry args={[4.8, 0.02, 0.2]} />
++            <meshStandardMaterial color={black} />
++          </mesh>
++        </group>
++
++        {/* Top Rotor Hub */}
++        <mesh position={[0, 0.8, 0]} castShadow>
++           <cylinderGeometry args={[0.2, 0.2, 0.1, 16]} />
++           <meshStandardMaterial color={darkGrey} />
++        </mesh>
++        <group position={[0, 0.85, 0]} ref={topRotorRef}>
+           <mesh castShadow>
+-            <boxGeometry args={[0.1, 0.6, 0.1]} />
+-            <meshStandardMaterial color={colors.slate} flatShading />
++            <boxGeometry args={[4.8, 0.02, 0.2]} />
++            <meshStandardMaterial color={black} />
+           </mesh>
+-          <mesh castShadow position={[0, -0.3, 0]} rotation={[0, 0, Math.PI / 2]}>
+-            <cylinderGeometry args={[0.18, 0.18, 0.15, 6]} />
+-            <meshStandardMaterial color="#050505" flatShading />
++          <mesh castShadow rotation={[0, Math.PI / 2, 0]}>
++            <boxGeometry args={[4.8, 0.02, 0.2]} />
++            <meshStandardMaterial color={black} />
+           </mesh>
+         </group>
+-      ))}
++      </group>
++      
+     </group>
+   );
+ }
+-
+-
+-
+-
+-
+-
+diff --git a/src/components/ui/HUD.tsx b/src/components/ui/HUD.tsx
+index f7b3ecd..aea8748 100644
+--- a/src/components/ui/HUD.tsx
++++ b/src/components/ui/HUD.tsx
+@@ -31,10 +31,24 @@ export default function HUD() {
+   const enemiesDestroyed = useStore(state => state.enemiesDestroyed);
+   const highestCombo = useStore(state => state.highestCombo);
+   const missionTime = useStore(state => state.missionTime);
++  const bossActive = useStore(state => state.bossActive);
++  const bossHealthPercent = useStore(state => state.bossHealthPercent);
++  const bossName = useStore(state => state.bossName) || "UNKNOWN BOSS";
+   const healthPercent = Math.max(0, health);
+   
++  const currentLevel = useStore(state => state.currentLevel);
++  const levelTransitioning = useStore(state => state.levelTransitioning);
++  
+   const [gameOverTitle, setGameOverTitle] = React.useState(DEFEAT_TITLES[0]);
+   const [gameOverSub, setGameOverSub] = React.useState(DEFEAT_SUBTITLES[0]);
++  
++  const [killFlash, setKillFlash] = React.useState(0);
++
++  React.useEffect(() => {
++    if (enemiesDestroyed > 0) {
++      setKillFlash(f => f + 1);
++    }
++  }, [enemiesDestroyed]);
+ 
+   React.useEffect(() => {
+     if (gameOver || gameState === 'victory') {
+@@ -141,6 +155,11 @@ export default function HUD() {
+ 
+             {/* Sub-status */}
+             <div className="flex gap-4 mt-2">
++              <div className="flex flex-col">
++                <span className="text-[8px] uppercase text-white/40 tracking-widest">CURRENT LEVEL</span>
++                <span className="text-sm font-bold text-amber-500 tabular-nums">STAGE {currentLevel}</span>
++              </div>
++              <div className="w-[1px] h-6 bg-white/10" />
+               <div className="flex flex-col">
+                 <span className="text-[8px] uppercase text-white/40 tracking-widest">MISSION TIME</span>
+                 <span className="text-sm font-bold text-white/80 tabular-nums">{formatTime(missionTime)}</span>
+@@ -242,9 +261,62 @@ export default function HUD() {
+               <span className="text-sky-400 font-bold uppercase tracking-[0.3em] text-xs">AIRCRAFT REPAIRED - STAY IN THE FIGHT</span>
+             </motion.div>
+           )}
++
++          {/* LEVEL TRANSITION OVERLAY */}
++          {levelTransitioning && (
++            <motion.div 
++              initial={{ scale: 1.5, opacity: 0 }} 
++              animate={{ scale: 1, opacity: 1 }} 
++              exit={{ scale: 0.8, opacity: 0 }} 
++              className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-40 pointer-events-none"
++            >
++              <div className="px-12 py-6 border-y border-amber-500/50 bg-black/80 flex flex-col items-center">
++                <h2 className="text-7xl font-black text-amber-500 italic uppercase tracking-tighter shadow-black drop-shadow-xl" style={{ fontFamily: 'Orbitron' }}>
++                  LEVEL {currentLevel} COMPLETE
++                </h2>
++                <div className="mt-4 text-xl font-bold text-emerald-400 tracking-[0.8em] uppercase">
++                  AREA SECURED - ADVANCING...
++                </div>
++              </div>
++            </motion.div>
++          )}
+         </AnimatePresence>
+       </div>
+ 
++      {/* KILL FLASH OVERLAY */}
++      <AnimatePresence>
++        {killFlash > 0 && (
++          <motion.div
++            key={killFlash}
++            initial={{ opacity: 0.3 }}
++            animate={{ opacity: 0 }}
++            transition={{ duration: 0.3 }}
++            className="absolute inset-0 bg-white pointer-events-none mix-blend-overlay"
++          />
++        )}
++      </AnimatePresence>
++
++      {/* BOSS HEALTH BAR */}
++      <AnimatePresence>
++        {bossActive && (
++          <motion.div 
++            initial={{ y: -50, opacity: 0 }}
++            animate={{ y: 0, opacity: 1 }}
++            exit={{ y: -50, opacity: 0 }}
++            className="absolute top-8 left-1/2 -translate-x-1/2 w-1/2 flex flex-col items-center pointer-events-none"
++          >
++            <span className="text-[12px] font-bold text-red-500 uppercase tracking-[0.5em] mb-2" style={{ fontFamily: 'Orbitron' }}>{bossName}</span>
++            <div className="w-full h-4 bg-black/60 border border-red-900/50 relative overflow-hidden">
++              <motion.div 
++                className="absolute top-0 left-0 h-full bg-gradient-to-r from-red-800 to-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]"
++                animate={{ width: `${bossHealthPercent}%` }}
++                transition={{ duration: 0.1 }}
++              />
++            </div>
++          </motion.div>
++        )}
++      </AnimatePresence>
++
+       <AnimatePresence>
+         {(gameOver || gameState === 'victory') && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-8 pointer-events-auto">
+diff --git a/src/components/ui/MenuSystem.tsx b/src/components/ui/MenuSystem.tsx
+index 95ba82d..dad84f7 100644
+--- a/src/components/ui/MenuSystem.tsx
++++ b/src/components/ui/MenuSystem.tsx
+@@ -11,6 +11,8 @@ export default function MenuSystem() {
+   const paused = useStore(state => state.paused);
+   const togglePause = useStore(state => state.togglePause);
+   const missionTime = useStore(state => state.missionTime);
++  const startLevel = useStore(state => state.startLevel);
++  const maxUnlockedLevel = useStore(state => state.maxUnlockedLevel);
+ 
+   React.useEffect(() => {
+     const handleEsc = (e: KeyboardEvent) => {
+@@ -72,6 +74,7 @@ export default function MenuSystem() {
+ 
+             <div className="flex flex-col gap-4">
+               <MenuButton onClick={() => { audioManager.init(); resetGame(); audioManager.playUIClick(); }} label="START MISSION" primary />
++              <MenuButton onClick={() => { audioManager.init(); setGameState('level_select'); audioManager.playUIClick(); }} label="SELECT MISSION" />
+               <MenuButton onClick={() => { audioManager.init(); setGameState('hangar'); audioManager.playUIClick(); }} label="HANGAR" />
+               <MenuButton onClick={() => { audioManager.init(); setGameState('loadout'); audioManager.playUIClick(); }} label="LOADOUT" />
+               <MenuButton onClick={() => { audioManager.init(); setGameState('settings'); audioManager.playUIClick(); }} label="SETTINGS" />
+@@ -90,6 +93,71 @@ export default function MenuSystem() {
+           </motion.div>
+         )}
+ 
++        {gameState === 'level_select' && (
++          <motion.div 
++            key="level_select"
++            initial={{ opacity: 0, scale: 0.98 }}
++            animate={{ opacity: 1, scale: 1 }}
++            exit={{ opacity: 0, scale: 0.98 }}
++            className="pointer-events-auto absolute inset-12 bg-slate-950/90 backdrop-blur-xl border border-white/10 rounded-2xl p-10 flex flex-col shadow-2xl"
++          >
++            <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-6">
++              <div>
++                <h2 className="text-4xl font-black italic text-white" style={{ fontFamily: 'Orbitron' }}>SELECT MISSION</h2>
++                <p className="text-emerald-500 font-bold tracking-widest text-sm mt-1 uppercase">Highest Clearance: Level {maxUnlockedLevel}</p>
++              </div>
++              <button 
++                onClick={() => { setGameState('menu'); audioManager.playUIClick(); }}
++                className="px-6 py-2 border border-white/20 text-white hover:bg-white/10 transition-colors uppercase font-bold tracking-widest text-sm"
++              >
++                Return to Command
++              </button>
++            </div>
++
++            <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar">
++              <div className="grid grid-cols-5 gap-4">
++                {Array.from({ length: 30 }).map((_, i) => {
++                  const levelNum = i + 1;
++                  const isUnlocked = levelNum <= maxUnlockedLevel;
++                  const isBoss = levelNum % 5 === 0;
++                  
++                  return (
++                    <button
++                      key={levelNum}
++                      disabled={!isUnlocked}
++                      onClick={() => {
++                        if (isUnlocked) {
++                          audioManager.init();
++                          startLevel(levelNum);
++                          audioManager.playUIClick();
++                        }
++                      }}
++                      className={`
++                        relative h-24 flex flex-col items-center justify-center border transition-all
++                        ${isUnlocked 
++                          ? (isBoss 
++                              ? 'border-red-500/50 bg-red-950/30 hover:bg-red-900/50 text-red-100 hover:border-red-400' 
++                              : 'border-emerald-500/30 bg-emerald-950/20 hover:bg-emerald-900/40 text-emerald-100 hover:border-emerald-400')
++                          : 'border-white/5 bg-white/5 text-white/20 cursor-not-allowed'}
++                      `}
++                    >
++                      <span className="text-3xl font-black italic" style={{ fontFamily: 'Orbitron' }}>
++                        {levelNum}
++                      </span>
++                      {isBoss && isUnlocked && (
++                        <span className="text-[10px] text-red-400 font-bold tracking-widest mt-1 uppercase">Boss Target</span>
++                      )}
++                      {!isUnlocked && (
++                        <span className="absolute bottom-2 text-xs opacity-50">LOCKED</span>
++                      )}
++                    </button>
++                  );
++                })}
++              </div>
++            </div>
++          </motion.div>
++        )}
++
+         {gameState === 'hangar' && (
+           <motion.div 
+             key="hangar"
+diff --git a/src/constants.ts b/src/constants.ts
+index b63805f..74a247c 100644
+--- a/src/constants.ts
++++ b/src/constants.ts
+@@ -17,8 +17,14 @@ export const GAME_CONSTANTS = {
+     LIFETIME: 2.0,
+   },
+   ENEMY: {
+-    SPEED: 5,
+-    SPAWN_RATE: 2.0,
+-    HEALTH: 100,
++    SPEED: 6,
++    SPAWN_RATE: 1.8,
++    HEALTH: 80,
++    GROUND_Y_OFFSETS: {
++      tank: 0.6,
++      armored_car: 0.7,
++      missile_truck: 0.5,
++      jeep: 0.4,
++    }
+   }
+ };
+diff --git a/src/store/useStore.ts b/src/store/useStore.ts
+index ab6519b..6dfdcda 100644
+--- a/src/store/useStore.ts
++++ b/src/store/useStore.ts
+@@ -1,6 +1,6 @@
+ import { create } from 'zustand';
+ 
+-export type GameStateEnum = 'menu' | 'playing' | 'hangar' | 'loadout' | 'settings' | 'gameover' | 'victory';
++export type GameStateEnum = 'menu' | 'playing' | 'hangar' | 'loadout' | 'settings' | 'gameover' | 'victory' | 'level_select';
+ 
+ interface GameStore {
+   gameState: GameStateEnum;
+@@ -49,15 +49,45 @@ interface GameStore {
+   // Respawn
+   respawnPlayer: () => void;
+   returnToMenu: () => void;
++  
++  bossActive: boolean;
++  bossHealthPercent: number;
++  bossName: string;
++  setBossState: (active: boolean, healthPercent: number, name?: string) => void;
++  playSessionId: number;
++
++  // Level Progression
++  currentLevel: number;
++  maxUnlockedLevel: number;
++  levelTransitioning: boolean;
++  levelTimer: number;
++  tickLevelTimer: (delta: number) => void;
++  completeLevel: () => void;
++  startNextLevel: () => void;
++  startLevel: (level: number) => void;
+ }
+ 
++const getStoredLevel = () => {
++  try {
++    const stored = localStorage.getItem('skystrike_max_level');
++    return stored ? parseInt(stored, 10) : 1;
++  } catch (e) {
++    return 1;
++  }
++};
++
+ export const useStore = create<GameStore>((set, get) => ({
+   gameState: 'menu',
++  playSessionId: 0,
+   setGameState: (state) => set({ gameState: state }),
+   health: 100,
+   score: 0,
+   combo: 1,
+   comboTimer: 0,
++  bossActive: false,
++  bossHealthPercent: 100,
++  bossName: "UNKNOWN",
++  setBossState: (active, hp, name) => set((state) => ({ bossActive: active, bossHealthPercent: hp, bossName: name || state.bossName })),
+   gameOver: false,
+   cameraShake: 0,
+   hitStop: 0,
+@@ -99,10 +129,7 @@ export const useStore = create<GameStore>((set, get) => ({
+   }),
+   addScore: (points) => set((state) => {
+     const newScore = state.score + (points * state.combo);
+-    // Trigger victory at 25k points for now as a mission milestone
+-    if (newScore >= 25000 && state.gameState === 'playing') {
+-      return { score: newScore, gameState: 'victory', gameOver: true };
+-    }
++    // Victory is now tied to beating level 30, not score.
+     return { score: newScore };
+   }),
+ 
+@@ -205,10 +232,13 @@ export const useStore = create<GameStore>((set, get) => ({
+     highestCombo: 0,
+     missionTime: 0,
+     playerPos: [0, 5, 0],
++    currentLevel: 1,
++    levelTransitioning: false,
++    levelTimer: 0,
+   }),
+ 
+-  // Full game reset (start mission)
+-  resetGame: () => set({ 
++  // Full game reset (start mission from highest unlocked level)
++  resetGame: () => set((state) => ({ 
+     gameState: 'playing', 
+     health: 100, 
+     score: 0, 
+@@ -227,5 +257,74 @@ export const useStore = create<GameStore>((set, get) => ({
+     highestCombo: 0,
+     missionTime: 0,
+     playerPos: [0, 5, 0],
+-  })
++    bossActive: false,
++    bossHealthPercent: 100,
++    playSessionId: state.playSessionId + 1,
++    currentLevel: state.maxUnlockedLevel,
++    levelTransitioning: false,
++    levelTimer: 0,
++  })),
++
++  startLevel: (level) => set((state) => ({ 
++    gameState: 'playing', 
++    health: 100, 
++    score: 0, 
++    combo: 1, 
++    comboTimer: 0, 
++    gameOver: false, 
++    cameraShake: 0, 
++    hitStop: 0, 
++    paused: false,
++    missiles: 4,
++    lives: 3,
++    invulnerable: false,
++    invulnerableTimer: 0,
++    respawning: false,
++    enemiesDestroyed: 0,
++    highestCombo: 0,
++    missionTime: 0,
++    playerPos: [0, 5, 0],
++    bossActive: false,
++    bossHealthPercent: 100,
++    playSessionId: state.playSessionId + 1,
++    currentLevel: level,
++    levelTransitioning: false,
++    levelTimer: 0,
++  })),
++
++  // Level Progression System
++  currentLevel: 1,
++  maxUnlockedLevel: getStoredLevel(),
++  levelTransitioning: false,
++  levelTimer: 0,
++  
++  tickLevelTimer: (delta) => set((state) => {
++    if (state.gameState !== 'playing' || state.paused || state.levelTransitioning || state.gameOver) return state;
++    return { levelTimer: state.levelTimer + delta };
++  }),
++
++  completeLevel: () => set((state) => {
++    if (state.currentLevel >= 30) {
++      // Beat the final level!
++      return { gameState: 'victory', gameOver: true, levelTransitioning: false };
++    }
++    
++    const newMax = Math.max(state.maxUnlockedLevel, state.currentLevel + 1);
++    if (newMax > state.maxUnlockedLevel) {
++      try {
++        localStorage.setItem('skystrike_max_level', newMax.toString());
++      } catch (e) {
++        console.warn("Could not save level progression");
++      }
++    }
++
++    // Standard level transition
++    return { levelTransitioning: true, maxUnlockedLevel: newMax };
++  }),
++
++  startNextLevel: () => set((state) => ({
++    currentLevel: state.currentLevel + 1,
++    levelTransitioning: false,
++    levelTimer: 0,
++  })),
+ }));

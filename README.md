@@ -17,8 +17,11 @@ Welcome to **SKY STRIKE**, the ultimate high-fidelity arcade shooter. Take contr
 ## 📸 GAMEPLAY SHOWCASE
 
 <div align="center">
-  <img width="1000" alt="Sky Strike AH-64 Apache Gameplay" src="./gameplay_screenshot.png" />
+  <img width="1000" alt="Sky Strike AH-64 Apache Gameplay" src="https://github.com/user-attachments/assets/gameplay_screenshot.png" />
   <p><i>Command the skies with the high-fidelity Boeing AH-64 Apache Attack Helicopter, featuring custom tandem cockpit, nose targeting turret, spinning main and tail rotors, Hydra-70 rocket pods, and AGM-114 Hellfire guided missiles.</i></p>
+  
+  <img width="1000" alt="Sky Strike In-Game Action" src="./gameplay_screenshot.png" />
+  <p><i>Intense aerial combat with advanced enemy AI, dynamic effects, and tactical gameplay elements.</i></p>
 </div>
 
 ---

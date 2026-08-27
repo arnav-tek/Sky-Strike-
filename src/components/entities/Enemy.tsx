@@ -9,7 +9,7 @@ import {
     EnemyTwinBlackSharkModel, EnemyFinalBlackSharkModel
 } from '../models/EnemyModels';
 import * as THREE from 'three';
-import { GAME_CONSTANTS } from '../../constants';
+import { GAME_CONSTANTS, HELICOPTER_TEMPLATES } from '../../constants';
 import { spawnEffect } from './EffectsManager';
 import { audioManager } from '../../audio/AudioManager';
 
@@ -70,6 +70,13 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
     
     if (gameState !== 'playing') return;
 
+    // Compute dynamic scroll speed based on selected helicopter speed stat
+    const activeHelicopter = storeState.selectedHelicopter || 'ka50';
+    const activeTemplate = HELICOPTER_TEMPLATES[activeHelicopter] || HELICOPTER_TEMPLATES.ka50;
+    const speedMult = activeTemplate.stats.speed / 70; // 70 baseline Apache
+    const scrollSpeed = GAME_CONSTANTS.PLAYER.SCROLL_SPEED * speedMult;
+    const playerSpeed = GAME_CONSTANTS.PLAYER.SPEED * speedMult;
+
     if (currentLevel !== previousLevel.current) {
         previousLevel.current = currentLevel;
         bossSpawnedRef.current = false;
@@ -85,10 +92,10 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
 
     const isBossLevel = currentLevel % 5 === 0;
 
-    // Score-based level completion: 2000 + (currentLevel-1)*500 points earned during the current level
+    // Score-based level completion: 8000 + (currentLevel-1)*2000 points earned during the current level
     // Boss levels complete when the boss is killed (handled in CollisionManager)
     const levelScoreGained = score - useStore.getState().levelStartScore;
-    const levelScoreTarget = 2000 + (currentLevel - 1) * 500;
+    const levelScoreTarget = 8000 + (currentLevel - 1) * 2000;
     if (!isBossLevel && !levelTransitioning && levelScoreGained >= levelScoreTarget) {
         useStore.getState().completeLevel();
     }
@@ -193,8 +200,10 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             if (isBoss && isGround) e.laneIndex = 1; // Bosses always in center lane
             const roadZ = isGround ? ROAD_LANES[e.laneIndex] : 0;
             
-            e.position.set(playerPos[0] + 50, e.baseY, roadZ);
-            e.velocity.set(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0);
+            // Spawn exactly off-screen to the right of the camera view
+            const spawnX = state.camera.position.x + 28;
+            e.position.set(spawnX, e.baseY, roadZ);
+            e.velocity.set(scrollSpeed, 0, 0);
             
             const randVariant = Math.random();
             e.variant = randVariant > 0.8 ? 'sniper' : (randVariant > 0.6 ? 'aggressive' : 'standard');
@@ -231,21 +240,21 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             case 'drone':
                 // Sine wave kamikaze or fast evasive
                 if (e.state === 'approach') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.5;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 1.5;
                     e.targetY = Math.max(6, e.baseY + Math.sin(e.timeOffset + e.stateTimer * 2) * 3);
                     if (dx < 20) {
                         e.state = e.variant === 'aggressive' ? 'kamikaze' : 'attack';
                         e.stateTimer = 0;
                     }
                 } else if (e.state === 'attack') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 0.5;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 0.5;
                     e.targetY = Math.max(6, playerPos[1] + Math.sin(e.stateTimer * 4) * 4);
                     if (e.stateTimer > 4) e.state = 'evade';
                 } else if (e.state === 'kamikaze') {
                     const dir = new THREE.Vector3(playerPos[0] - e.position.x, playerPos[1] - e.position.y, 0).normalize();
-                    e.velocity.copy(dir).multiplyScalar(GAME_CONSTANTS.ENEMY.SPEED * 3.0).add(new THREE.Vector3(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0));
+                    e.velocity.copy(dir).multiplyScalar(GAME_CONSTANTS.ENEMY.SPEED * 3.0).add(new THREE.Vector3(scrollSpeed, 0, 0));
                 } else if (e.state === 'evade') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 2.0;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 2.0;
                     e.targetY = GAME_CONSTANTS.BOUNDS.Y_MAX;
                 }
                 break;
@@ -253,14 +262,14 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             case 'scout':
                 // Hit and run strafing
                 if (e.state === 'approach') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 2.5;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 2.5;
                     if (dx < 25) { e.state = 'strafe'; e.stateTimer = 0; }
                 } else if (e.state === 'strafe') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - 1;
+                    e.velocity.x = scrollSpeed - 1;
                     e.targetY = Math.max(6, playerPos[1] + Math.cos(e.stateTimer * 3) * 5);
                     if (e.stateTimer > 3) { e.state = 'retreat'; e.stateTimer = 0; }
                 } else if (e.state === 'retreat') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED + GAME_CONSTANTS.ENEMY.SPEED * 1.5; // Fly forward away
+                    e.velocity.x = scrollSpeed + GAME_CONSTANTS.ENEMY.SPEED * 1.5; // Fly forward away
                     e.targetY = GAME_CONSTANTS.BOUNDS.Y_MAX;
                     if (dx > 60) e.active = false;
                 }
@@ -269,14 +278,14 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             case 'helicopter':
                 // Standard hover and shoot
                 if (e.state === 'approach') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.2;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 1.2;
                     if (dx < 25) { e.state = 'attack'; e.stateTimer = 0; }
                 } else if (e.state === 'attack') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED;
+                    e.velocity.x = scrollSpeed;
                     e.targetY = Math.max(6, playerPos[1] + Math.sin(e.stateTimer) * 2);
                     if (e.stateTimer > 6) { e.state = 'evade'; e.stateTimer = 0; }
                 } else if (e.state === 'evade') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.5;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 1.5;
                     e.targetY = e.baseY;
                 }
                 break;
@@ -285,15 +294,15 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             case 'heavy_gunship':
                 // Flying fortress, slow advance, burst fire
                 if (e.state === 'approach') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 0.5;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 0.5;
                     e.targetY = Math.max(6, playerPos[1]);
                     if (dx < 35) { e.state = 'burst_fire'; e.stateTimer = 0; }
                 } else if (e.state === 'burst_fire') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED;
+                    e.velocity.x = scrollSpeed;
                     e.targetY = Math.max(6, playerPos[1] + Math.sin(e.stateTimer * 2) * 3);
                     if (e.stateTimer > 5) { e.state = 'reposition'; e.stateTimer = 0; }
                 } else if (e.state === 'reposition') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED + GAME_CONSTANTS.ENEMY.SPEED;
+                    e.velocity.x = scrollSpeed + GAME_CONSTANTS.ENEMY.SPEED;
                     e.targetY = Math.random() > 0.5 ? GAME_CONSTANTS.BOUNDS.Y_MAX - 2 : Math.max(6, GAME_CONSTANTS.BOUNDS.Y_MIN + 4);
                     if (e.stateTimer > 2) { e.state = 'burst_fire'; e.stateTimer = 0; }
                 }
@@ -304,10 +313,10 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             case 'blackshark_final':
                 // Boss behavior
                 if (e.state === 'approach') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.8;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 1.8;
                     if (dx < 20) { e.state = 'attack'; e.stateTimer = 0; }
                 } else if (e.state === 'attack') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED + Math.sin(e.stateTimer) * 5; // Swoop back and forth
+                    e.velocity.x = scrollSpeed + Math.sin(e.stateTimer) * 5; // Swoop back and forth
                     e.targetY = playerPos[1] + Math.cos(e.stateTimer * 1.5) * 6;
                     
                     // Periodic shields
@@ -315,7 +324,7 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
                         e.state = 'shield'; e.stateTimer = 0;
                     }
                 } else if (e.state === 'shield') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED;
+                    e.velocity.x = scrollSpeed;
                     e.targetY = GAME_CONSTANTS.BOUNDS.Y_MAX - 2;
                     e.shieldActive = true;
                     if (e.stateTimer > 5) { e.state = 'attack'; e.stateTimer = 0; e.shieldActive = false; }
@@ -326,10 +335,10 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             case 'mega_tank':
                 // Slow ground advance
                 if (e.state === 'approach') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 0.8;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 0.8;
                     if (dx < 20) { e.state = 'attack'; e.stateTimer = 0; }
                 } else if (e.state === 'attack') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 0.2; // Crawl
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 0.2; // Crawl
                     if (e.stateTimer > 5) { e.state = 'approach'; e.stateTimer = 0; }
                 }
                 break;
@@ -337,15 +346,15 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             case 'armored_car':
                 // Weaves between lanes
                 if (e.state === 'approach') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.5;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 1.5;
                     e.position.z = ROAD_LANES[e.laneIndex] + Math.sin(e.stateTimer * 2) * 1.5;
                     if (dx < 15) { e.state = 'attack'; e.stateTimer = 0; }
                 } else if (e.state === 'attack') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 0.8;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 0.8;
                     e.position.z = Math.sin(e.timeOffset + e.stateTimer) * 3;
                     if (e.stateTimer > 4) { e.state = 'evade'; e.stateTimer = 0; }
                 } else if (e.state === 'evade') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 2.0;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 2.0;
                 }
                 break;
                 
@@ -353,25 +362,25 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             case 'mega_missile_truck':
                 // Snipes from afar
                 if (e.state === 'approach') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.0;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 1.0;
                     if (dx < 35) { e.state = 'defensive'; e.stateTimer = 0; } // Stop far back
                 } else if (e.state === 'defensive') {
                     // Match player speed to stay far away
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED;
-                    if (dx < 15) e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED + 2; // Retreat if player gets close
+                    e.velocity.x = scrollSpeed;
+                    if (dx < 15) e.velocity.x = scrollSpeed + 2; // Retreat if player gets close
                     if (e.stateTimer > 8) { e.state = 'evade'; e.stateTimer = 0; } // Prevent getting stuck
                 } else if (e.state === 'evade') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 1.5; // Fall back and despawn
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 1.5; // Fall back and despawn
                 }
                 break;
                 
             case 'jeep':
                 // Fast rush
                 if (e.state === 'approach') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 2.5;
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 2.5;
                     if (dx < 5) { e.state = 'retreat'; e.stateTimer = 0; } // Zoom past
                 } else if (e.state === 'retreat') {
-                    e.velocity.x = GAME_CONSTANTS.PLAYER.SCROLL_SPEED - GAME_CONSTANTS.ENEMY.SPEED * 3.0; // Keep going fast
+                    e.velocity.x = scrollSpeed - GAME_CONSTANTS.ENEMY.SPEED * 3.0; // Keep going fast
                 }
                 break;
         }
@@ -459,6 +468,7 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
             const b = enemyBullets.find(bullet => !bullet.active);
             if (b) {
                 b.active = true;
+                b.enemyType = e.type;
                 let spawnOffset = new THREE.Vector3(0, 0.5, 0);
                 if (e.type === 'tank') spawnOffset.set(-2.2, 0.8, 0);
                 else if (e.type === 'armored_car') spawnOffset.set(-1.8, 0.8, 0);
@@ -480,15 +490,16 @@ export function EnemyManager({ enemies, enemyBullets, effects }: { enemies: any[
 
                 const dir = targetPos.sub(spawnPos).normalize();
                 let bulletSpeedMult = e.type === 'tank' || e.type === 'missile_truck' ? 1.2 : 0.6;
-                b.velocity.copy(dir).multiplyScalar(GAME_CONSTANTS.BULLET.SPEED * bulletSpeedMult).add(new THREE.Vector3(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0));
+                b.velocity.copy(dir).multiplyScalar(GAME_CONSTANTS.BULLET.SPEED * bulletSpeedMult).add(new THREE.Vector3(scrollSpeed, 0, 0));
                 b.lifetime = GAME_CONSTANTS.BULLET.LIFETIME * 2.0;
                 
                 spawnEffect(effects, spawnPos, 'muzzle', 0.5, '#ea580c');
             }
         }
         
-        if (e.position.x < playerPos[0] - 40) e.active = false;
-        if (e.position.x > playerPos[0] + 120) e.active = false; // despawn if too far ahead
+        // Despawn if they leave camera bounds (left side or too far right)
+        if (e.position.x < state.camera.position.x - 25) e.active = false;
+        if (e.position.x > state.camera.position.x + 50) e.active = false; // despawn if too far ahead
     }
     
     // Update Bullets
@@ -560,7 +571,13 @@ function EnemyInstance({ enemy }: { enemy: EnemyData }) {
                   turretRef.current.rotation.z = THREE.MathUtils.lerp(turretRef.current.rotation.z, targetAngle, 3 * delta);
               }
               
-              const speedRatio = Math.abs(GAME_CONSTANTS.PLAYER.SCROLL_SPEED - enemy.velocity.x) / GAME_CONSTANTS.PLAYER.SCROLL_SPEED;
+              // Compute dynamic scroll speed based on selected helicopter speed stat
+              const activeHelicopter = useStore.getState().selectedHelicopter || 'ka50';
+              const activeTemplate = HELICOPTER_TEMPLATES[activeHelicopter] || HELICOPTER_TEMPLATES.ka50;
+              const speedMult = activeTemplate.stats.speed / 70; // 70 baseline Apache
+              const currentScrollSpeed = GAME_CONSTANTS.PLAYER.SCROLL_SPEED * speedMult;
+
+              const speedRatio = Math.abs(currentScrollSpeed - enemy.velocity.x) / currentScrollSpeed;
               const bounceFreq = enemy.type === 'tank' ? 3 : 6;
               const bounceAmp = enemy.type === 'tank' ? 0.015 : 0.03;
               const bounce = Math.sin(enemy.position.x * bounceFreq) * bounceAmp * (speedRatio > 0.1 ? 1 : 0);
@@ -569,7 +586,13 @@ function EnemyInstance({ enemy }: { enemy: EnemyData }) {
               groupRef.current.rotation.z = bounce * 0.5;
               groupRef.current.rotation.x = Math.cos(enemy.position.x * (bounceFreq * 0.7)) * (bounceAmp * 0.3);
           } else {
-              const forwardTilt = (GAME_CONSTANTS.PLAYER.SCROLL_SPEED - enemy.velocity.x) * (enemy.type === 'drone' ? 0.08 : 0.05);
+              // Compute dynamic scroll speed based on selected helicopter speed stat
+              const activeHelicopter = useStore.getState().selectedHelicopter || 'ka50';
+              const activeTemplate = HELICOPTER_TEMPLATES[activeHelicopter] || HELICOPTER_TEMPLATES.ka50;
+              const speedMult = activeTemplate.stats.speed / 70; // 70 baseline Apache
+              const currentScrollSpeed = GAME_CONSTANTS.PLAYER.SCROLL_SPEED * speedMult;
+
+              const forwardTilt = (currentScrollSpeed - enemy.velocity.x) * (enemy.type === 'drone' ? 0.08 : 0.05);
               const verticalTilt = enemy.velocity.y * (enemy.type === 'drone' ? 0.04 : 0.02);
               const targetRotZ = THREE.MathUtils.clamp(-forwardTilt + verticalTilt, -0.6, 0.6);
               const targetRotX = THREE.MathUtils.clamp(-enemy.velocity.y * 0.05, -0.5, 0.5);

@@ -26,6 +26,7 @@ export default function HUD() {
   const missiles = useStore(state => state.missiles);
   const maxMissiles = useStore(state => state.maxMissiles);
   const lives = useStore(state => state.lives);
+  const maxLives = useStore(state => state.maxLives);
   const invulnerable = useStore(state => state.invulnerable);
   const respawning = useStore(state => state.respawning);
   const enemiesDestroyed = useStore(state => state.enemiesDestroyed);
@@ -38,19 +39,31 @@ export default function HUD() {
 
   const currentLevel = useStore(state => state.currentLevel);
   const levelTransitioning = useStore(state => state.levelTransitioning);
-  const startNextLevel = useStore(state => state.startNextLevel);
+  const returnToLevelSelect = useStore(state => state.returnToLevelSelect);
   const levelStartScore = useStore(state => state.levelStartScore);
 
   const [gameOverTitle, setGameOverTitle] = React.useState(DEFEAT_TITLES[0]);
   const [gameOverSub, setGameOverSub] = React.useState(DEFEAT_SUBTITLES[0]);
 
-  // Auto-advance to next level after 3 seconds
+  const [countdown, setCountdown] = React.useState(5);
+
+  // Auto-return to level select after 5 seconds
   React.useEffect(() => {
     if (levelTransitioning) {
-      const timer = setTimeout(() => { startNextLevel(); }, 3000);
-      return () => clearTimeout(timer);
+      setCountdown(5);
+      const timer = setInterval(() => {
+        setCountdown((c) => {
+          if (c <= 1) {
+            clearInterval(timer);
+            returnToLevelSelect();
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
     }
-  }, [levelTransitioning, startNextLevel]);
+  }, [levelTransitioning, returnToLevelSelect]);
 
   const [killFlash, setKillFlash] = React.useState(0);
 
@@ -75,23 +88,23 @@ export default function HUD() {
 
   const isCritical = healthPercent <= 30;
   const isBossLevel = currentLevel % 5 === 0;
-  const levelScoreTarget = 2000 + (currentLevel - 1) * 500;
+  const levelScoreTarget = 8000 + (currentLevel - 1) * 2000;
   const levelProgress = Math.min(100, (Math.max(0, score - levelStartScore) / levelScoreTarget) * 100);
 
   const healthBarColor = isCritical
-    ? 'from-red-700 via-red-500 to-red-400'
+    ? 'from-red-600 to-red-500'
     : healthPercent <= 60
-      ? 'from-amber-600 via-amber-500 to-amber-400'
-      : 'from-emerald-600 via-emerald-500 to-emerald-400';
+      ? 'from-amber-500 to-amber-400'
+      : 'from-emerald-500 to-emerald-400';
 
   const healthGlowColor = isCritical
-    ? 'rgba(239,68,68,0.5)'
+    ? 'rgba(239,68,68,0.4)'
     : healthPercent <= 60
-      ? 'rgba(245,158,11,0.4)'
-      : 'rgba(16,185,129,0.4)';
+      ? 'rgba(245,158,11,0.3)'
+      : 'rgba(16,185,129,0.3)';
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between select-none" style={{ fontFamily: '"Rajdhani", sans-serif' }}>
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between select-none p-6" style={{ fontFamily: '"Rajdhani", sans-serif' }}>
 
       {/* ═══ CRITICAL DAMAGE VIGNETTE ═══ */}
       {isCritical && !respawning && !gameOver && (
@@ -101,168 +114,154 @@ export default function HUD() {
       {/* ═══════════════════════════════════════
           TOP BAR — Health, Score, Level Info
           ═══════════════════════════════════════ */}
-      <div className="flex justify-between items-start p-5 pb-0 z-20">
+      <div className="flex justify-between items-start w-full z-20">
 
-        {/* ─── LEFT: Health + Lives ─── */}
-        <div className="flex flex-col gap-2 min-w-[340px]">
-
-          {/* Lives row */}
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold text-white/35 uppercase tracking-[0.15em] mr-1">LIVES</span>
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="relative">
-                <div
-                  className={`w-6 h-6 rounded transition-all duration-300 ${
-                    i < lives
-                      ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)]'
-                      : 'bg-white/8 border border-white/10'
-                  }`}
-                />
-                {i < lives && (
-                  <div className="absolute inset-0 rounded bg-emerald-400/30 animate-pulse" />
-                )}
-              </div>
-            ))}
+        {/* ─── LEFT: Armor & Lives (Minimalist Vector HUD) ─── */}
+        <div className="flex flex-col gap-1 w-80 pointer-events-auto">
+          {/* Header */}
+          <div className="flex justify-between items-center px-0.5">
+            <span className="text-[11px] font-black text-emerald-400 tracking-[0.2em] flex items-center gap-1.5" style={{ fontFamily: 'Orbitron' }}>
+              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+              ARMOR
+            </span>
+            <span className={`text-[10px] uppercase tracking-wider font-extrabold ${isCritical ? 'text-red-400 animate-pulse' : 'text-emerald-500/60'}`}>
+              {isCritical ? 'CRITICAL' : healthPercent <= 60 ? 'WARNING' : 'SYS_OK'}
+            </span>
           </div>
 
-          {/* Health bar */}
+          {/* Bar & Percentage */}
           <div className="flex items-center gap-3">
-            <div className="flex flex-col flex-1">
-              <span className="text-xs font-bold text-emerald-400/70 uppercase tracking-[0.2em] mb-1 ml-0.5" style={{ fontFamily: 'Orbitron' }}>
-                HULL INTEGRITY
-              </span>
-              <div
-                className={`relative w-full h-7 bg-black/70 rounded overflow-hidden border ${
-                  isCritical ? 'border-red-500/50 border-pulse-red' : 'border-white/10'
-                }`}
-              >
-                {/* Tick overlay */}
-                <div className="absolute inset-0 hud-bar-ticks z-10" />
-                {/* Health fill */}
-                <motion.div
-                  className={`h-full bg-gradient-to-r ${healthBarColor} relative`}
-                  initial={{ width: '100%' }}
-                  animate={{ width: `${healthPercent}%` }}
-                  transition={{ duration: 0.3, ease: 'easeOut' }}
-                  style={{ boxShadow: `0 0 14px ${healthGlowColor}` }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-                </motion.div>
-              </div>
+            <div className="relative w-64 h-3.5 bg-black/45 border border-emerald-500/35 overflow-hidden">
+              <div className="absolute inset-0 hud-bar-ticks z-10 opacity-30" />
+              <motion.div
+                className={`h-full bg-gradient-to-r ${healthBarColor} relative`}
+                initial={{ width: '100%' }}
+                animate={{ width: `${healthPercent}%` }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                style={{ boxShadow: `0 0 8px ${healthGlowColor}` }}
+              />
             </div>
-            {/* Health percentage */}
-            <div className={`text-4xl font-black tabular-nums leading-none ${
+            <span className={`text-2xl font-extrabold tabular-nums leading-none tracking-tight ${
               isCritical ? 'text-red-400 text-glow-red' : healthPercent <= 60 ? 'text-amber-400 text-glow-amber' : 'text-emerald-400 text-glow-emerald'
             }`}>
-              {Math.ceil(healthPercent)}
-              <span className="text-lg font-bold opacity-50">%</span>
-            </div>
+              {Math.ceil(healthPercent)}%
+            </span>
           </div>
 
-          {/* Warning messages */}
+          {/* Lives indicator (Clean solid/hollow blocks) */}
+          <div className="flex items-center gap-2 mt-1 px-0.5 text-[10px] font-black tracking-[0.18em] text-emerald-400/65 uppercase">
+            <span>SYS_LIVES:</span>
+            <span className="text-xs font-normal tracking-wide text-emerald-400">
+              {Array.from({ length: maxLives }).map((_, i) => i < lives ? '▮' : '▯').join(' ')}
+            </span>
+          </div>
+
+          {/* Warnings */}
           <AnimatePresence>
             {isCritical && !respawning && (
               <motion.div
-                initial={{ opacity: 0, x: -15 }}
+                initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0 }}
-                className="flex items-center gap-2 mt-1"
+                className="text-[10px] font-black text-red-400 uppercase tracking-widest mt-1 animate-pulse"
               >
-                <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-ping" />
-                <span className="text-red-400 font-bold text-sm uppercase tracking-[0.15em]">⚠ CRITICAL DAMAGE</span>
+                [ ! HULL DAMAGE INTEGRITY EXCEEDED ! ]
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
 
-        {/* ─── CENTER: Level + Mission info ─── */}
-        <div className="flex items-center gap-4 bg-black/50 backdrop-blur-sm rounded-xl px-6 py-3 border border-white/8">
-          {/* Stage badge */}
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] uppercase text-white/35 tracking-[0.15em] font-bold">STAGE</span>
-            <span className="text-3xl font-black text-amber-400 leading-none tabular-nums" style={{ fontFamily: 'Orbitron' }}>{currentLevel}</span>
+        {/* ─── CENTER: Level + Mission info (Tactical Vector Strip) ─── */}
+        <div className="pointer-events-auto flex items-center gap-5 px-6 py-2.5 bg-black/35 border-x border-b border-sky-500/20 rounded-b-md shadow-lg">
+          {/* Stage */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-extrabold text-sky-400/60 uppercase tracking-wider">STAGE:</span>
+            <span className="text-lg font-black text-amber-400 text-glow-amber tabular-nums leading-none" style={{ fontFamily: 'Orbitron' }}>
+              {currentLevel.toString().padStart(2, '0')}
+            </span>
           </div>
 
-          <div className="w-px h-10 bg-white/10" />
+          <div className="text-sky-500/20">|</div>
 
-          {/* Level progress / Boss indicator */}
-          <div className="flex flex-col min-w-[140px]">
-            <span className="text-[10px] uppercase text-white/35 tracking-[0.15em] font-bold">
-              {isBossLevel ? 'OBJECTIVE' : 'PROGRESS'}
+          {/* Progress */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-extrabold text-sky-400/60 uppercase tracking-wider">
+              {isBossLevel ? 'OBJ:' : 'SECURED:'}
             </span>
             {isBossLevel ? (
-              <span className="text-base font-bold text-red-400 uppercase tracking-wider">DEFEAT BOSS</span>
+              <span className="text-xs font-black text-red-400 uppercase tracking-wider animate-pulse">[ ELIMINATE RAID BOSS ]</span>
             ) : (
-              <div className="flex items-center gap-2.5 mt-1">
-                <div className="flex-1 h-2.5 bg-white/8 rounded-full overflow-hidden">
+              <div className="flex items-center gap-2">
+                <div className="w-28 h-1.5 bg-sky-950/40 border border-sky-500/25 overflow-hidden">
                   <motion.div
-                    className="h-full bg-sky-400 rounded-full progress-stripes"
+                    className="h-full bg-sky-400"
                     animate={{ width: `${levelProgress}%` }}
                     transition={{ duration: 0.3 }}
                   />
                 </div>
-                <span className="text-sm font-bold text-sky-400/80 tabular-nums">{Math.floor(levelProgress)}%</span>
+                <span className="text-xs font-bold text-sky-300 tabular-nums leading-none">{Math.floor(levelProgress)}%</span>
               </div>
             )}
           </div>
 
-          <div className="w-px h-10 bg-white/10" />
+          <div className="text-sky-500/20">|</div>
 
-          {/* Mission timer */}
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] uppercase text-white/35 tracking-[0.15em] font-bold">TIME</span>
-            <span className="text-xl font-bold text-white/75 tabular-nums leading-none">{formatTime(missionTime)}</span>
+          {/* Time */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-extrabold text-sky-400/60 uppercase tracking-wider">TIME:</span>
+            <span className="text-sm font-black text-slate-100 tabular-nums leading-none">{formatTime(missionTime)}</span>
           </div>
 
-          <div className="w-px h-10 bg-white/10" />
+          <div className="text-sky-500/20">|</div>
 
-          {/* Kills counter */}
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] uppercase text-white/35 tracking-[0.15em] font-bold">KILLS</span>
-            <span className="text-xl font-bold text-red-400 tabular-nums leading-none">{enemiesDestroyed}</span>
+          {/* Kills */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-extrabold text-sky-400/60 uppercase tracking-wider">KILLS:</span>
+            <span className="text-sm font-black text-red-400 text-glow-red tabular-nums leading-none">{enemiesDestroyed}</span>
           </div>
         </div>
 
 
-        {/* ─── RIGHT: Score + Combo ─── */}
-        <div className="flex flex-col items-end min-w-[240px]">
-          <span className="text-xs font-bold text-sky-400/60 uppercase tracking-[0.25em] mr-1" style={{ fontFamily: 'Orbitron' }}>SCORE</span>
-          <motion.div
-            key={score}
-            initial={{ y: -8, opacity: 0.5 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.15 }}
-            className="text-5xl font-black text-white tracking-tight tabular-nums leading-none text-glow-white"
-            style={{ fontFamily: 'Orbitron' }}
-          >
-            {score.toLocaleString()}
-          </motion.div>
+        {/* ─── RIGHT: Score & Combo (Digital Telemetry) ─── */}
+        <div className="flex flex-col items-end w-64 pointer-events-auto">
+          <div className="flex flex-col items-end">
+            <span className="text-[10px] font-black text-sky-400/70 uppercase tracking-[0.25em] mb-0.5" style={{ fontFamily: 'Orbitron' }}>
+              SCORE
+            </span>
+            <motion.div
+              key={score}
+              initial={{ scale: 1.1 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.15 }}
+              className="text-4xl font-extrabold text-white text-glow-white tracking-tight tabular-nums leading-none"
+              style={{ fontFamily: 'Orbitron' }}
+            >
+              {score.toLocaleString()}
+            </motion.div>
+          </div>
 
-          {/* Combo indicator */}
+          {/* Combo indicator (Clean brackets) */}
           <AnimatePresence>
             {combo > 1 && (
               <motion.div
-                initial={{ x: 30, opacity: 0, scale: 0.8 }}
-                animate={{ x: 0, opacity: 1, scale: 1 }}
-                exit={{ x: 30, opacity: 0, scale: 0.8 }}
-                className="flex items-center gap-3 mt-3"
+                initial={{ x: 20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 20, opacity: 0 }}
+                className="mt-2.5 px-3 py-1 bg-black/45 border border-amber-500/35 rounded-sm flex items-center gap-2.5"
               >
-                {/* Combo timer bar */}
-                <div className="w-2 h-14 bg-white/8 rounded-full overflow-hidden relative">
+                <span className="text-[9px] font-black text-amber-500/70 tracking-widest uppercase">
+                  {combo > 5 ? 'HYPER' : 'CHAIN'}
+                </span>
+                <span className="text-lg font-black text-amber-400 text-glow-amber leading-none tracking-tighter" style={{ fontFamily: 'Orbitron' }}>
+                  ×{combo}
+                </span>
+                <div className="w-1.5 h-4 bg-black/50 rounded-full overflow-hidden relative border border-amber-500/15">
                   <motion.div
-                    className="absolute bottom-0 w-full bg-amber-400 rounded-full"
+                    className="absolute bottom-0 w-full bg-amber-400"
                     animate={{ height: `${(comboTimer / 3.0) * 100}%` }}
                     transition={{ duration: 0.1 }}
                   />
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-xs font-bold text-amber-400/60 uppercase tracking-[0.15em]">
-                    {combo > 5 ? 'DOMINANCE' : 'CHAIN'}
-                  </span>
-                  <div className="text-4xl font-black text-amber-400 leading-none text-glow-amber" style={{ fontFamily: 'Orbitron' }}>
-                    ×{combo}
-                  </div>
                 </div>
               </motion.div>
             )}
@@ -278,23 +277,17 @@ export default function HUD() {
             initial={{ y: -40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -40, opacity: 0 }}
-            className="absolute top-[90px] left-1/2 -translate-x-1/2 w-[45%] max-w-xl flex flex-col items-center z-30"
+            className="absolute top-[80px] left-1/2 -translate-x-1/2 w-[40%] max-w-lg flex flex-col items-center z-30 pointer-events-auto"
           >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-sm font-black text-red-400 uppercase tracking-[0.4em]" style={{ fontFamily: 'Orbitron' }}>
-                {bossName}
-              </span>
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            </div>
-            <div className="w-full h-5 bg-black/70 border border-red-900/40 rounded overflow-hidden boss-bar-glow">
+            <span className="text-[10px] font-black text-red-400 uppercase tracking-[0.3em] mb-1.5 animate-pulse">
+              HOSTILE ENCOUNTER: {bossName}
+            </span>
+            <div className="w-full h-3 bg-black/65 border border-red-500/30 overflow-hidden shadow-[0_0_8px_rgba(239,68,68,0.2)]">
               <motion.div
-                className="h-full bg-gradient-to-r from-red-800 via-red-600 to-red-500 relative"
+                className="h-full bg-red-600 relative"
                 animate={{ width: `${bossHealthPercent}%` }}
                 transition={{ duration: 0.1 }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-              </motion.div>
+              />
             </div>
           </motion.div>
         )}
@@ -304,92 +297,75 @@ export default function HUD() {
       {/* ═══════════════════════════════════════
           BOTTOM BAR — Weapons + Radar
           ═══════════════════════════════════════ */}
-      <div className="flex justify-between items-end p-5 pt-0 z-20">
+      <div className="flex justify-between items-end w-full z-20 mt-auto">
 
-        {/* ─── LEFT BOTTOM: Radar ─── */}
-        <div className="relative w-32 h-32 bg-black/50 backdrop-blur-sm rounded-full border border-emerald-500/20 overflow-hidden">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-20 h-px bg-emerald-500/15" />
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="h-20 w-px bg-emerald-500/15" />
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-14 h-14 rounded-full border border-emerald-500/10" />
-          </div>
+        {/* ─── LEFT BOTTOM: Clean Vector Radar ─── */}
+        <div className="pointer-events-auto w-34 h-34 bg-black/35 backdrop-blur-none rounded-full border border-emerald-500/30 overflow-hidden relative flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center"><div className="w-[85%] h-px bg-emerald-500/8" /></div>
+          <div className="absolute inset-0 flex items-center justify-center"><div className="h-[85%] w-px bg-emerald-500/8" /></div>
+          <div className="absolute inset-0 flex items-center justify-center"><div className="w-[60%] h-[60%] rounded-full border border-emerald-500/5" /></div>
           {/* Sweep */}
           <div className="absolute inset-0 flex items-center justify-center radar-sweep">
-            <div className="w-px h-14 bg-gradient-to-b from-emerald-400/60 to-transparent origin-bottom" style={{ transformOrigin: 'bottom center', position: 'absolute', bottom: '50%' }} />
+            <div className="w-px h-16 bg-gradient-to-b from-emerald-500/60 to-transparent origin-bottom" style={{ transformOrigin: 'bottom center', position: 'absolute', bottom: '50%' }} />
           </div>
           {/* Player dot */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-3 h-3 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+            <div className="w-2 h-2 bg-emerald-400 rounded-full shadow-[0_0_4px_#10b981]" />
           </div>
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2">
-            <span className="text-[9px] font-bold text-emerald-400/40 uppercase tracking-wider">RADAR</span>
-          </div>
-        </div>
-
-
-        {/* ─── CENTER BOTTOM: Controls ─── */}
-        <div className="flex items-center gap-4 opacity-35 mb-3">
-          <div className="flex items-center gap-1.5">
-            <kbd className="text-xs font-bold text-white/60 bg-white/8 border border-white/10 rounded px-2 py-1">W A S D</kbd>
-            <span className="text-xs text-white/40">MOVE</span>
-          </div>
-          <div className="w-px h-4 bg-white/10" />
-          <div className="flex items-center gap-1.5">
-            <kbd className="text-xs font-bold text-white/60 bg-white/8 border border-white/10 rounded px-2 py-1">CLICK</kbd>
-            <span className="text-xs text-white/40">FIRE</span>
-          </div>
-          <div className="w-px h-4 bg-white/10" />
-          <div className="flex items-center gap-1.5">
-            <kbd className="text-xs font-bold text-white/60 bg-white/8 border border-white/10 rounded px-2 py-1">SPACE</kbd>
-            <span className="text-xs text-white/40">MISSILE</span>
-          </div>
-          <div className="w-px h-4 bg-white/10" />
-          <div className="flex items-center gap-1.5">
-            <kbd className="text-xs font-bold text-white/60 bg-white/8 border border-white/10 rounded px-2 py-1">ESC</kbd>
-            <span className="text-xs text-white/40">PAUSE</span>
+          <div className="absolute bottom-2">
+            <span className="text-[8px] font-black text-emerald-400/40 uppercase tracking-widest">RADAR</span>
           </div>
         </div>
 
 
-        {/* ─── RIGHT BOTTOM: Weapons ─── */}
-        <div className="flex flex-col items-end gap-3">
+        {/* ─── CENTER BOTTOM: Telemetry Controls overlay ─── */}
+        <div className="flex items-center gap-3.5 bg-black/35 border border-white/5 rounded-full px-5 py-1.5 backdrop-blur-none opacity-40 hover:opacity-100 transition-all duration-200 mb-1 select-none pointer-events-auto">
+          <div className="flex items-center gap-1">
+            <kbd className="text-[9px] font-black text-slate-300 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">WASD</kbd>
+            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold">MOVE</span>
+          </div>
+          <div className="text-white/10 text-xs">|</div>
+          <div className="flex items-center gap-1">
+            <kbd className="text-[9px] font-black text-slate-300 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">L-CLICK</kbd>
+            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold">FIRE</span>
+          </div>
+          <div className="text-white/10 text-xs">|</div>
+          <div className="flex items-center gap-1">
+            <kbd className="text-[9px] font-black text-slate-300 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">SPACE</kbd>
+            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold">ATGM</span>
+          </div>
+          <div className="text-white/10 text-xs">|</div>
+          <div className="flex items-center gap-1">
+            <kbd className="text-[9px] font-black text-slate-300 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">ESC</kbd>
+            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold">PAUSE</span>
+          </div>
+        </div>
 
-          {/* Primary weapon */}
-          <div className="flex items-center gap-3 bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2.5 border border-white/8">
-            <div className="w-1.5 h-8 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-            <div className="text-right">
-              <div className="text-[10px] font-bold text-white/35 uppercase tracking-[0.12em]">PRIMARY</div>
-              <div className="text-lg font-black text-white/90 uppercase tracking-tight leading-none">2A42 CANNON</div>
+
+        {/* ─── RIGHT BOTTOM: Clean Tactical Weapons Selector ─── */}
+        <div className="border border-emerald-500/20 bg-black/45 p-4 rounded-sm flex flex-col gap-2.5 w-72 pointer-events-auto shadow-md">
+          {/* Primary */}
+          <div className="flex justify-between items-center border-b border-white/5 pb-1.5">
+            <div className="flex flex-col text-left">
+              <span className="text-[8px] font-black text-emerald-400/50 uppercase tracking-wider">CANNON PRIMARY</span>
+              <span className="text-xs font-black text-white uppercase tracking-tight italic">[ 30MM 2A42 AUTOCANNON ]</span>
             </div>
-            <div className="text-sm font-bold text-emerald-400/70 uppercase ml-1">∞</div>
+            <span className="text-xs font-black text-emerald-400/70 tracking-widest">∞</span>
           </div>
 
-          {/* Secondary weapon + missiles */}
-          <div className="flex flex-col items-end gap-1.5">
-            <div className="flex items-center gap-3 bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2.5 border border-white/8">
-              <div className="w-1.5 h-8 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" />
-              <div className="text-right">
-                <div className="text-[10px] font-bold text-white/35 uppercase tracking-[0.12em]">SECONDARY <span className="text-amber-400/50">[SPACE]</span></div>
-                <div className="text-lg font-black text-white/90 uppercase tracking-tight leading-none">VIKHR ATGMs</div>
+          {/* Secondary */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between items-center">
+              <div className="flex flex-col text-left">
+                <span className="text-[8px] font-black text-amber-500/50 uppercase tracking-wider">ORDNANCE ATGM</span>
+                <span className="text-xs font-black text-white uppercase tracking-tight italic">[ 9K121 VIKHR ROCKETS ]</span>
               </div>
-              <div className="text-xl font-black text-amber-400 tabular-nums ml-2">{missiles}</div>
+              <span className="text-sm font-black text-amber-400 text-glow-amber tabular-nums">{missiles}</span>
             </div>
-            {/* Missile pips */}
-            <div className="flex gap-1.5 mr-1">
-              {Array.from({ length: maxMissiles }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-7 h-2.5 rounded-sm transition-all duration-200 ${
-                    i < missiles
-                      ? 'bg-amber-500 missile-pill-active'
-                      : 'bg-white/8 border border-white/5'
-                  }`}
-                />
-              ))}
+            
+            {/* Missile pips (Sleek block text) */}
+            <div className="flex gap-1 select-none text-[10px] leading-none tracking-normal font-black text-amber-500">
+              {Array.from({ length: maxMissiles }).map((_, i) => i < missiles ? '▮' : '▯').join(' ')}
             </div>
           </div>
         </div>
@@ -402,38 +378,32 @@ export default function HUD() {
           {/* Respawning */}
           {respawning && (
             <motion.div
-              initial={{ scale: 2, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="flex flex-col items-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="pointer-events-auto"
             >
-              <div className="px-14 py-6 bg-red-950/30 backdrop-blur-lg border-y-2 border-red-500/70 relative">
-                <div className="absolute inset-0 hud-scanlines" />
-                <h2 className="text-6xl font-black text-red-500 uppercase tracking-tight text-glow-red relative z-10" style={{ fontFamily: 'Orbitron' }}>
+              <div className="px-12 py-6 bg-black/90 border border-red-500/30 rounded flex flex-col items-center shadow-2xl">
+                <h2 className="text-4xl font-extrabold text-red-500 uppercase tracking-widest text-glow-red" style={{ fontFamily: 'Orbitron' }}>
                   AIRCRAFT DESTROYED
                 </h2>
+                <span className="mt-3.5 text-xs font-black text-white/50 tracking-[0.25em] uppercase animate-pulse">
+                  RECONSTITUTING COMBAT CELL...
+                </span>
               </div>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-                className="mt-5 text-xl font-bold text-white/60 tracking-[0.5em] uppercase"
-              >
-                REDEPLOYING...
-              </motion.div>
             </motion.div>
           )}
 
-          {/* Invulnerability */}
+          {/* Invulnerability (Shield Active) */}
           {invulnerable && !respawning && (
             <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -20, opacity: 0 }}
-              className="absolute top-[18%] px-6 py-2.5 bg-sky-500/15 backdrop-blur-sm border border-sky-400/40 rounded-full"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="absolute top-[18%] px-6 py-2 bg-black/45 border border-cyan-400/50 rounded shadow-[0_0_12px_rgba(34,211,238,0.15)] pointer-events-none"
             >
-              <span className="text-sky-300 font-bold uppercase tracking-[0.25em] text-sm">
-                SHIELDS ACTIVE
+              <span className="text-xs font-black text-cyan-300 tracking-[0.3em] uppercase text-glow-sky animate-pulse">
+                [ SHIELDS ACTIVE ]
               </span>
             </motion.div>
           )}
@@ -441,36 +411,53 @@ export default function HUD() {
           {/* Level transition */}
           {levelTransitioning && (
             <motion.div
-              initial={{ scale: 1.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-slate-950/96 flex flex-col items-center justify-center p-8 pointer-events-auto"
             >
-              <div className="relative">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: '100%' }}
-                  transition={{ duration: 0.6 }}
-                  className="h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent mb-8"
-                />
-                <h2 className="text-7xl font-black text-amber-400 uppercase tracking-tight text-glow-amber text-center" style={{ fontFamily: 'Orbitron' }}>
-                  LEVEL {currentLevel} COMPLETE
-                </h2>
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: '100%' }}
-                  transition={{ duration: 0.6, delay: 0.2 }}
-                  className="h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent mt-8"
-                />
+              <div className="absolute inset-0 hud-scanlines opacity-20" />
+
+              <div className="h-px bg-amber-500/35 w-80 mb-8" />
+
+              <div className="relative flex flex-col items-center gap-2 mb-10 text-center">
+                <span className="text-emerald-400/60 font-black uppercase tracking-[0.5em] text-xs">
+                  MISSION ACCOMPLISHED
+                </span>
+                <h1
+                  className="text-6xl font-black text-amber-400 text-glow-amber tracking-tight uppercase italic leading-none"
+                  style={{ fontFamily: 'Orbitron' }}
+                >
+                  SECTOR {currentLevel} CLEAR
+                </h1>
+                <p className="text-white/30 uppercase tracking-[0.18em] text-xs mt-1.5">TACTICAL AREA SECURED • RETRIEVING DATA</p>
               </div>
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
-                className="mt-8 text-xl font-bold text-emerald-400/80 tracking-[0.6em] uppercase"
-              >
-                AREA SECURED • ADVANCING...
-              </motion.div>
+
+              {/* Stats card grid */}
+              <div className="w-full max-w-xl grid grid-cols-2 gap-4 mb-10 pointer-events-auto">
+                <StatCard label="TACTICAL SCORE" value={score.toLocaleString()} color="text-white" highlight />
+                <StatCard label="MISSION TIME" value={formatTime(missionTime)} color="text-sky-400" />
+                <SelectableStatCard label="ENEMIES DESTROYED" value={enemiesDestroyed.toString()} color="text-red-400" />
+                <SelectableStatCard label="MAX MULTIPLIER" value={`${highestCombo}×`} color="text-amber-400" />
+              </div>
+
+              <div className="h-px bg-amber-500/20 w-80 mb-8" />
+
+              <div className="flex flex-col items-center gap-3.5 w-full max-w-xs pointer-events-auto">
+                <button
+                  onClick={() => {
+                    audioManager.playUIClick();
+                    returnToLevelSelect();
+                  }}
+                  className="w-full py-3.5 text-sm font-black tracking-[0.15em] uppercase rounded border border-emerald-500 bg-emerald-950/20 hover:bg-emerald-900/30 text-emerald-400 transition-all duration-200 cursor-pointer"
+                >
+                  CONTINUE OPERATION
+                </button>
+                
+                <div className="text-[10px] uppercase tracking-[0.15em] text-slate-500 text-center">
+                  Auto-returning to Mission Control in <span className="text-amber-400 font-bold tabular-nums">{countdown}</span>s...
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -482,9 +469,9 @@ export default function HUD() {
         {killFlash > 0 && (
           <motion.div
             key={killFlash}
-            initial={{ opacity: 0.2 }}
+            initial={{ opacity: 0.15 }}
             animate={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: 0.2 }}
             className="absolute inset-0 bg-white pointer-events-none mix-blend-overlay z-30"
           />
         )}
@@ -497,60 +484,50 @@ export default function HUD() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="fixed inset-0 z-50 bg-slate-950/92 backdrop-blur-lg flex flex-col items-center justify-center p-8 pointer-events-auto"
+            className="fixed inset-0 z-50 bg-slate-950/96 flex flex-col items-center justify-center p-8 pointer-events-auto"
           >
-            <div className="absolute inset-0 hud-scanlines opacity-30" />
+            <div className="absolute inset-0 hud-scanlines opacity-20" />
 
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: '320px' }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className={`h-px ${gameState === 'victory' ? 'bg-emerald-500' : 'bg-red-500'} mb-10`}
-            />
+            <div className={`h-px ${gameState === 'victory' ? 'bg-emerald-500/35' : 'bg-red-500/35'} w-80 mb-8`} />
 
-            <div className="relative flex flex-col items-center gap-3 mb-12 text-center">
-              <span className={`${gameState === 'victory' ? 'text-emerald-400/60' : 'text-sky-400/60'} font-bold uppercase tracking-[0.6em] text-sm`}>
-                {gameState === 'victory' ? "MISSION SUCCESSFUL" : "MISSION FAILED"}
+            <div className="relative flex flex-col items-center gap-2 mb-10 text-center">
+              <span className={`${gameState === 'victory' ? 'text-emerald-400/60' : 'text-sky-400/60'} font-black uppercase tracking-[0.5em] text-xs`}>
+                {gameState === 'victory' ? "MISSION DEBRIEFING" : "TACTICAL CRITICAL STATUS"}
               </span>
               <h1
-                className={`text-7xl font-black ${gameState === 'victory' ? 'text-emerald-400 text-glow-emerald' : 'text-red-500 text-glow-red'} tracking-tight uppercase`}
+                className={`text-6xl font-black ${gameState === 'victory' ? 'text-emerald-400 text-glow-emerald' : 'text-red-500 text-glow-red'} tracking-tight uppercase italic leading-none`}
                 style={{ fontFamily: 'Orbitron' }}
               >
                 {gameOverTitle}
               </h1>
-              <p className="text-white/40 uppercase tracking-[0.15em] text-base mt-1">{gameOverSub}</p>
+              <p className="text-white/30 uppercase tracking-[0.18em] text-xs mt-1.5">{gameOverSub}</p>
             </div>
 
-            <div className="w-full max-w-2xl grid grid-cols-2 gap-5 mb-12">
+            <div className="w-full max-w-xl grid grid-cols-2 gap-4 mb-10">
               <StatCard label="FINAL SCORE" value={score.toLocaleString()} color="text-white" highlight />
-              <StatCard label="FLIGHT TIME" value={formatTime(missionTime)} color="text-sky-400" />
-              <StatCard label="TARGETS DESTROYED" value={enemiesDestroyed.toString()} color="text-red-400" />
-              <StatCard label="MAX CHAIN" value={`${highestCombo}×`} color="text-amber-400" />
+              <StatCard label="ELAPSED TIME" value={formatTime(missionTime)} color="text-sky-400" />
+              <SelectableStatCard label="ENEMIES DESTROYED" value={enemiesDestroyed.toString()} color="text-red-400" />
+              <SelectableStatCard label="MAX MULTIPLIER" value={`${highestCombo}×`} color="text-amber-400" />
             </div>
 
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: '320px' }}
-              transition={{ duration: 0.8, delay: 0.5 }}
-              className={`h-px ${gameState === 'victory' ? 'bg-emerald-500/50' : 'bg-red-500/50'} mb-10`}
-            />
+            <div className={`h-px ${gameState === 'victory' ? 'bg-emerald-500/20' : 'bg-red-500/20'} w-80 mb-8`} />
 
-            <div className="flex flex-col gap-4 w-full max-w-sm">
+            <div className="flex flex-col gap-3 w-full max-w-xs">
               <button
                 onClick={resetGame}
-                className={`py-4 text-base font-black tracking-[0.2em] uppercase rounded-lg transition-all duration-300 ${
+                className={`py-3.5 text-sm font-black tracking-[0.15em] uppercase rounded border transition-all duration-200 ${
                   gameState === 'victory'
-                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 hover:shadow-emerald-800/50'
-                    : 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/30 hover:shadow-red-800/50'
+                    ? 'border-emerald-500 bg-emerald-950/20 hover:bg-emerald-900/30 text-emerald-400'
+                    : 'border-red-500 bg-red-950/20 hover:bg-red-900/30 text-red-400'
                 }`}
               >
-                RETRY MISSION
+                REDEPLOY FOR MISSION
               </button>
               <button
                 onClick={returnToMenu}
-                className="py-4 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-sm font-bold tracking-[0.15em] uppercase rounded-lg border border-white/8 hover:border-white/15 transition-all duration-300"
+                className="py-3 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 text-xs font-bold tracking-[0.15em] uppercase rounded border border-white/8 hover:border-white/12 transition-all duration-200"
               >
-                RETURN TO BASE
+                RETURN TO COCKPIT HANGAR
               </button>
             </div>
           </motion.div>
@@ -564,21 +541,31 @@ export default function HUD() {
 function StatCard({ label, value, color, highlight = false }: { label: string, value: string, color: string, highlight?: boolean }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 15 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.3 }}
-      className={`relative flex flex-col p-5 bg-white/3 border rounded-xl overflow-hidden ${
-        highlight ? 'border-white/15 ring-1 ring-white/10' : 'border-white/5'
+      transition={{ duration: 0.4, delay: 0.2 }}
+      className={`relative flex flex-col p-4 bg-black/65 border rounded shadow-md ${
+        highlight ? 'border-white/20' : 'border-white/5'
       }`}
     >
-      {highlight && (
-        <>
-          <div className="absolute top-0 left-0 w-3 h-3 border-t border-l border-white/20" />
-          <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-white/20" />
-        </>
-      )}
-      <span className="text-xs font-bold uppercase tracking-[0.15em] text-white/25 mb-1.5">{label}</span>
-      <span className={`text-3xl font-black tabular-nums ${color}`} style={{ fontFamily: 'Orbitron' }}>
+      <span className="text-[10px] font-black uppercase tracking-[0.15em] text-white/25 mb-1.5">{label}</span>
+      <span className={`text-2xl font-black tabular-nums tracking-tight ${color}`} style={{ fontFamily: 'Orbitron' }}>
+        {value}
+      </span>
+    </motion.div>
+  );
+}
+
+function SelectableStatCard({ label, value, color }: { label: string, value: string, color: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.3 }}
+      className="relative flex flex-col p-4 bg-black/65 border border-white/5 rounded shadow-md"
+    >
+      <span className="text-[10px] font-black uppercase tracking-[0.15em] text-white/25 mb-1.5">{label}</span>
+      <span className={`text-2xl font-black tabular-nums tracking-tight ${color}`} style={{ fontFamily: 'Orbitron' }}>
         {value}
       </span>
     </motion.div>

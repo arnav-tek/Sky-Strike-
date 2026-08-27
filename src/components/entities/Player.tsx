@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { useStore } from '../../store/useStore';
 import HelicopterModel from '../models/HelicopterModel';
 import * as THREE from 'three';
-import { GAME_CONSTANTS } from '../../constants';
+import { GAME_CONSTANTS, HELICOPTER_TEMPLATES } from '../../constants';
 import { spawnEffect } from './EffectsManager';
 import { audioManager } from '../../audio/AudioManager';
 
@@ -15,7 +15,7 @@ interface BulletData {
   lifetime: number;
 }
 
-export default function Player({ bullets, missiles, effects }: { bullets: any[], missiles: any[], effects: any[] }) {
+export default function Player({ bullets, missiles, effects, enemies }: { bullets: any[], missiles: any[], effects: any[], enemies: any[] }) {
   const groupRef = useRef<THREE.Group>(null);
   const heliRef = useRef<THREE.Group>(null);
   
@@ -62,6 +62,23 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
     const state = useStore.getState();
     if (!groupRef.current) return;
 
+    const activeHelicopter = state.selectedHelicopter || 'ka50';
+    const activeTemplate = HELICOPTER_TEMPLATES[activeHelicopter] || HELICOPTER_TEMPLATES.ka50;
+
+    const speedMult = activeTemplate.stats.speed / 70; // 70 baseline Apache
+    const playerSpeed = GAME_CONSTANTS.PLAYER.SPEED * speedMult;
+    const scrollSpeed = GAME_CONSTANTS.PLAYER.SCROLL_SPEED * speedMult;
+
+    const agilityMult = activeTemplate.stats.agility / 55; // 55 baseline Apache
+    const dampFactor = 5 * agilityMult;
+
+    if (state.gameState !== 'playing' && state.gameState !== 'menu' && state.gameState !== 'loadout' && state.gameState !== 'settings' && state.gameState !== 'hangar') {
+      groupRef.current.visible = false;
+      return;
+    } else {
+      groupRef.current.visible = state.gameState === 'playing';
+    }
+
     // Tick mission time
     state.tickMissionTime(delta);
 
@@ -75,9 +92,9 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
     state.tickInvulnerability(delta);
 
     // ─── DEATH & RESPAWNING ANIMATION ───
-    if (state.gameOver || state.gameState === 'gameover' || state.respawning) {
+    if (state.gameOver || state.respawning) {
       // Crash sequence
-      velocity.current.x = THREE.MathUtils.lerp(velocity.current.x, GAME_CONSTANTS.PLAYER.SCROLL_SPEED * 0.5, delta);
+      velocity.current.x = THREE.MathUtils.lerp(velocity.current.x, scrollSpeed * 0.5, delta);
       velocity.current.y -= 25 * delta; // Heavy gravity pull
       
       groupRef.current.position.addScaledVector(velocity.current, delta);
@@ -103,11 +120,12 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
           if (respawnCooldown.current > 2.0) { // 2 second crash view
               respawnCooldown.current = 0;
               exploded.current = false;
+              if (heliRef.current) heliRef.current.visible = true;
               
               const currentX = groupRef.current.position.x;
               groupRef.current.position.set(currentX - 5, 8, 0);
               groupRef.current.rotation.set(0, 0, 0);
-              velocity.current.set(GAME_CONSTANTS.PLAYER.SCROLL_SPEED, 0, 0);
+              velocity.current.set(scrollSpeed, 0, 0);
               
               Object.keys(keys.current).forEach(k => {
                 keys.current[k as keyof typeof keys.current] = false;
@@ -150,14 +168,14 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
 
     // Calculate target velocities based on input
     let targetVelY = 0;
-    let targetVelX = GAME_CONSTANTS.PLAYER.SCROLL_SPEED;
+    let targetVelX = scrollSpeed;
 
     if (state.gameState === 'playing') {
-      if (keys.current.w || keys.current.ArrowUp) targetVelY = GAME_CONSTANTS.PLAYER.SPEED;
-      if (keys.current.s || keys.current.ArrowDown) targetVelY = -GAME_CONSTANTS.PLAYER.SPEED;
+      if (keys.current.w || keys.current.ArrowUp) targetVelY = playerSpeed;
+      if (keys.current.s || keys.current.ArrowDown) targetVelY = -playerSpeed;
 
-      if (keys.current.d || keys.current.ArrowRight) targetVelX += GAME_CONSTANTS.PLAYER.SPEED;
-      if (keys.current.a || keys.current.ArrowLeft) targetVelX -= GAME_CONSTANTS.PLAYER.SPEED;
+      if (keys.current.d || keys.current.ArrowRight) targetVelX += playerSpeed;
+      if (keys.current.a || keys.current.ArrowLeft) targetVelX -= playerSpeed;
       
       // Lock rotation to face gameplay direction (right)
       groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, 0, 10 * delta);
@@ -174,7 +192,6 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
     }
 
     // Smooth dampening (acceleration/deceleration)
-    const dampFactor = 5;
     velocity.current.x = THREE.MathUtils.lerp(velocity.current.x, targetVelX, dampFactor * delta);
     velocity.current.y = THREE.MathUtils.lerp(velocity.current.y, targetVelY, dampFactor * delta);
     velocity.current.z = 0;
@@ -201,42 +218,93 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
     }
 
     // Tilt visually based on movement
-    const forwardTilt = (GAME_CONSTANTS.PLAYER.SCROLL_SPEED - velocity.current.x) * 0.05;
-    const verticalTilt = velocity.current.y * 0.02;
-    groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, forwardTilt + verticalTilt, 10 * delta);
-    
-    groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, -velocity.current.y * 0.05, 10 * delta);
+    // Normalize relative velocities to [-1, 1] range to prevent extreme tilting on high-speed/agile helicopters
+    const speedRatioX = playerSpeed > 0 ? (velocity.current.x - scrollSpeed) / playerSpeed : 0;
+    const speedRatioY = playerSpeed > 0 ? velocity.current.y / playerSpeed : 0;
+
+    // Apply controlled tilt limits (max ~15-25 degrees depending on agility)
+    const maxPitchAngle = 0.28 * agilityMult; // Max pitch (nose up/down) in radians
+    const maxRollAngle = 0.22 * agilityMult;  // Max roll (bank left/right) in radians
+
+    const targetPitch = -speedRatioX * maxPitchAngle + speedRatioY * (maxPitchAngle * 0.4);
+    const targetRoll = -speedRatioY * maxRollAngle;
+
+    groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, targetPitch, 10 * delta);
+    groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, targetRoll, 10 * delta);
+
 
     // Store position for camera and others
     useStore.getState().setPlayerPos([groupRef.current.position.x, groupRef.current.position.y, groupRef.current.position.z]);
 
+    // Tick power-ups timers
+    state.tickPowerups(delta);
+
     // Update bullets (Manual-fire logic + bullet lifetime)
     fireTimer.current += delta;
-    if (state.gameState === 'playing' && isMouseDown.current && fireTimer.current > GAME_CONSTANTS.BULLET.FIRE_RATE) {
+    
+    const currentFireRate = GAME_CONSTANTS.BULLET.FIRE_RATE * Math.pow(0.9, state.fireRateLevel - 1);
+    
+    if (state.gameState === 'playing' && isMouseDown.current && fireTimer.current > currentFireRate) {
       fireTimer.current = 0;
-      // Spawn bullet
-      const p = bullets.find(b => !b.active);
-      if (p) {
-        p.active = true;
-        // Spawn at player weapon mount position
-        // Helicopter is rotated so weapon pods are offset in global Z
-        const zOffset = Math.random() > 0.5 ? 1.0 : -1.0;
-        const spawnPos = groupRef.current.position.clone().add(new THREE.Vector3(0.8, -0.2, zOffset));
-        p.position.copy(spawnPos);
-        p.velocity.set(GAME_CONSTANTS.BULLET.SPEED + velocity.current.x, 0, 0);
-        p.lifetime = GAME_CONSTANTS.BULLET.LIFETIME;
-        
-        audioManager.playShoot();
-        spawnEffect(effects, spawnPos, 'muzzle', 0.5, '#fef08a');
+      const power = state.weaponPower;
+      audioManager.playShoot();
+
+      if (power === 1) {
+        // Power 1: Single straight bullet
+        const p = bullets.find(b => !b.active);
+        if (p) {
+          p.active = true;
+          p.enemyType = 'player';
+          const zOffset = Math.random() > 0.5 ? 0.3 : -0.3;
+          const spawnPos = groupRef.current.position.clone().add(new THREE.Vector3(1.2, -0.2, zOffset));
+          p.position.copy(spawnPos);
+          p.velocity.set(GAME_CONSTANTS.BULLET.SPEED + velocity.current.x, 0, 0);
+          p.lifetime = GAME_CONSTANTS.BULLET.LIFETIME;
+          spawnEffect(effects, spawnPos, 'muzzle', 0.5, '#fef08a');
+        }
+      } else if (power === 2) {
+        // Power 2: Dual parallel bullets
+        const zOffsets = [0.8, -0.8];
+        for (let i = 0; i < 2; i++) {
+          const p = bullets.find(b => !b.active);
+          if (p) {
+            p.active = true;
+            p.enemyType = 'player';
+            const spawnPos = groupRef.current.position.clone().add(new THREE.Vector3(1.2, -0.2, zOffsets[i]));
+            p.position.copy(spawnPos);
+            p.velocity.set(GAME_CONSTANTS.BULLET.SPEED + velocity.current.x, 0, 0);
+            p.lifetime = GAME_CONSTANTS.BULLET.LIFETIME;
+            spawnEffect(effects, spawnPos, 'muzzle', 0.5, '#fef08a');
+          }
+        }
+      } else {
+        // Power 3: 3-way spread shot
+        const angles = [0, 0.22, -0.22];
+        const zOffsets = [0.0, 0.8, -0.8];
+        for (let i = 0; i < 3; i++) {
+          const p = bullets.find(b => !b.active);
+          if (p) {
+            p.active = true;
+            p.enemyType = 'player';
+            const spawnPos = groupRef.current.position.clone().add(new THREE.Vector3(1.2, -0.2, zOffsets[i]));
+            p.position.copy(spawnPos);
+            
+            const speed = GAME_CONSTANTS.BULLET.SPEED;
+            p.velocity.set(
+              speed + velocity.current.x,
+              speed * angles[i],
+              0
+            );
+            p.lifetime = GAME_CONSTANTS.BULLET.LIFETIME;
+            spawnEffect(effects, spawnPos, 'muzzle', 0.55, '#fef08a');
+          }
+        }
       }
     }
 
     // Update missiles (Spacebar logic)
-    // We use a local cooldown so we don't fire 4 missiles in 4 frames
     missileTimer.current += delta;
     
-    // Auto reload handled by global store, wait, if we handle reload here, we can just do it on a timer.
-    // Let's use a separate timer for reload.
     if (!groupRef.current.userData.reloadTimer) groupRef.current.userData.reloadTimer = 0;
     groupRef.current.userData.reloadTimer += delta;
     
@@ -248,14 +316,37 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
     if (state.gameState === 'playing' && keys.current.Space && missileTimer.current > 0.2) {
       if (useStore.getState().fireMissile()) {
         missileTimer.current = 0;
-        // Spawn missile
         const m = missiles.find(m => !m.active);
         if (m) {
           m.active = true;
+          
+          // Lock onto nearest active enemy in front of player
+          let closestTarget = null;
+          let minDistance = 60; // lock range
+          const playerPosVec = groupRef.current.position;
+          
+          for (let e of enemies) {
+            if (e.active && e.position.x > playerPosVec.x) {
+              const dx = e.position.x - playerPosVec.x;
+              const dy = e.position.y - playerPosVec.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < minDistance) {
+                minDistance = dist;
+                closestTarget = e;
+              }
+            }
+          }
+          
+          m.target = closestTarget;
           const spawnPos = groupRef.current.position.clone().add(new THREE.Vector3(0, -0.5, 0));
           m.position.copy(spawnPos);
-          // Fire diagonally down-right
-          m.velocity.set(GAME_CONSTANTS.BULLET.SPEED * 0.4 + velocity.current.x, -GAME_CONSTANTS.BULLET.SPEED * 0.6, 0);
+          
+          if (closestTarget) {
+            m.velocity.set(GAME_CONSTANTS.BULLET.SPEED * 0.5 + velocity.current.x, 0, 0);
+          } else {
+            m.velocity.set(GAME_CONSTANTS.BULLET.SPEED * 0.4 + velocity.current.x, -GAME_CONSTANTS.BULLET.SPEED * 0.6, 0);
+          }
+          
           m.lifetime = 4.0;
           audioManager.playMissile();
         }
@@ -280,26 +371,46 @@ export default function Player({ bullets, missiles, effects }: { bullets: any[],
         if (m.active) {
             m.position.addScaledVector(m.velocity, delta);
             m.lifetime -= delta;
-            // Gravity acceleration for missiles
-            m.velocity.y -= 15 * delta;
+            
+            // Predictive Homing curve physics steering
+            if (m.target && m.target.active) {
+              const currentSpeed = m.velocity.length() || GAME_CONSTANTS.BULLET.SPEED;
+              const dist = m.position.distanceTo(m.target.position);
+              const timeToIntercept = dist / currentSpeed;
+              
+              // Predict where target will be
+              const predictedTargetPos = m.target.position.clone().addScaledVector(m.target.velocity, Math.min(timeToIntercept, 1.0));
+              
+              const targetDir = new THREE.Vector3().subVectors(predictedTargetPos, m.position).normalize();
+              const steeringForce = 5.5; // Slightly stronger steering for predictive
+              m.velocity.lerp(targetDir.multiplyScalar(currentSpeed), delta * steeringForce);
+            } else {
+              m.velocity.y -= 15 * delta; // Fallback to standard bullet drop
+            }
             
             // Smoke trail
             if (Math.random() > 0.6) {
                 spawnEffect(effects, m.position.clone().add(new THREE.Vector3(-0.2, 0.2, 0)), 'smoke', 0.8);
             }
 
-            // Ground explosion is handled by CollisionManager
-            if (m.lifetime <= 0) m.active = false;
             if (m.lifetime <= 0) m.active = false;
         }
     }
   });
 
+  const state = useStore();
+
   return (
     <group ref={groupRef} position={[0, 5, 0]}>
       <group ref={heliRef}>
-        <HelicopterModel rotation={[0, Math.PI / 2, 0]} />
+        <HelicopterModel type={state.selectedHelicopter} rotation={[0, Math.PI / 2, 0]} />
       </group>
+      {state.shieldActive && (
+        <mesh>
+          <sphereGeometry args={[2.4, 16, 16]} />
+          <meshBasicMaterial color="#06b6d4" wireframe transparent opacity={0.35} />
+        </mesh>
+      )}
     </group>
   );
 }

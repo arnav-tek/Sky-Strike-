@@ -2,6 +2,10 @@ import React from 'react';
 import { useStore } from '../../store/useStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { audioManager } from '../../audio/AudioManager';
+import { Canvas } from '@react-three/fiber';
+import HelicopterModel from '../models/HelicopterModel';
+import { HELICOPTER_TEMPLATES } from '../../constants';
+
 
 export default function MenuSystem() {
   const gameState = useStore(state => state.gameState);
@@ -13,6 +17,17 @@ export default function MenuSystem() {
   const missionTime = useStore(state => state.missionTime);
   const startLevel = useStore(state => state.startLevel);
   const maxUnlockedLevel = useStore(state => state.maxUnlockedLevel);
+  
+  const selectedHelicopter = useStore(state => state.selectedHelicopter);
+  const selectHelicopter = useStore(state => state.selectHelicopter);
+
+  const scrap = useStore(state => state.scrap);
+  const maxHealthLevel = useStore(state => state.maxHealthLevel);
+  const fireRateLevel = useStore(state => state.fireRateLevel);
+  const buyUpgrade = useStore(state => state.buyUpgrade);
+
+  const activeTemplate = HELICOPTER_TEMPLATES[selectedHelicopter] || HELICOPTER_TEMPLATES.ka50;
+
 
   React.useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -45,9 +60,15 @@ export default function MenuSystem() {
   if ((gameState === 'playing' && !paused) || gameState === 'gameover' || gameState === 'victory') return null;
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex items-center z-50" style={{ fontFamily: '"Rajdhani", sans-serif' }}>
-      {/* Dark overlay for contrast */}
-      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/70 to-transparent"></div>
+    <div className="absolute inset-0 pointer-events-none flex items-center z-50 overflow-hidden" style={{ fontFamily: '"Rajdhani", sans-serif' }}>
+      {/* HUD Scanline Overlay */}
+      <div className="hud-scanlines absolute inset-0 opacity-[0.03] pointer-events-none z-[100]" />
+      
+      {/* Cyber Digital Grid Overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.015)_1px,transparent_1px)] bg-[size:45px_45px] pointer-events-none opacity-60" />
+
+      {/* Dark overlay for contrast - softened gradient to make environment look vibrant and clear */}
+      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/45 to-transparent"></div>
 
       <AnimatePresence mode="wait">
         {/* ═══════════════════════════════════════
@@ -59,7 +80,7 @@ export default function MenuSystem() {
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -50 }}
-            className="pointer-events-auto flex flex-col gap-6 ml-20"
+            className="pointer-events-auto flex flex-col gap-6 ml-20 relative z-20"
           >
             {/* Game title */}
             <div className="mb-8">
@@ -80,6 +101,17 @@ export default function MenuSystem() {
               >
                 <div className="h-[2px] w-12 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                 <p className="text-slate-400 tracking-[0.4em] uppercase text-sm font-bold">Arcade Combat Operations</p>
+              </motion.div>
+              
+              {/* Sleek active helicopter selector feedback */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 0.85, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="flex items-center gap-2 mt-4 text-emerald-400 font-bold uppercase tracking-[0.2em] text-xs border border-emerald-500/20 bg-emerald-950/30 px-3.5 py-1.5 rounded-md w-fit"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shadow-[0_0_8px_#10b981]" />
+                ACTIVE FRAME: {activeTemplate.name}
               </motion.div>
             </div>
 
@@ -202,47 +234,133 @@ export default function MenuSystem() {
           >
             <div className="flex justify-between items-center mb-6 border-b border-white/8 pb-5">
               <div>
-                <h2 className="text-4xl font-black uppercase tracking-[0.1em] text-emerald-400" style={{ fontFamily: 'Orbitron' }}>HANGAR</h2>
-                <p className="text-slate-500 text-sm uppercase tracking-[0.12em] mt-1">Aircraft Maintenance & Tuning</p>
+                <h2 className="text-4xl font-black uppercase tracking-[0.1em] text-emerald-400" style={{ fontFamily: 'Orbitron' }}>COCKPIT HANGAR</h2>
+                <p className="text-slate-500 text-sm uppercase tracking-[0.12em] mt-1">Select and Tune Combat Frame</p>
               </div>
-              <button 
-                onClick={() => { setGameState('menu'); audioManager.playUIClick(); }} 
-                className="px-6 py-2.5 border border-white/15 text-white/70 hover:text-white hover:bg-white/5 transition-all uppercase font-bold tracking-[0.1em] text-sm rounded-lg"
-              >
-                ← Back
-              </button>
+              <div className="flex items-center gap-6">
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] uppercase text-emerald-500 font-bold tracking-widest">AVAILABLE SCRAP</span>
+                  <span className="text-2xl font-black text-white" style={{ fontFamily: 'Orbitron' }}>{scrap} <span className="text-emerald-500 text-sm">¢</span></span>
+                </div>
+                <button 
+                  onClick={() => { setGameState('menu'); audioManager.playUIClick(); }} 
+                  className="px-6 py-2.5 border border-white/15 text-white/70 hover:text-white hover:bg-white/5 transition-all uppercase font-bold tracking-[0.1em] text-sm rounded-lg cursor-pointer"
+                >
+                  ← Back to Base
+                </button>
+              </div>
             </div>
             
-            <div className="flex-1 grid grid-cols-3 gap-8">
-              {/* Aircraft info */}
-              <div className="col-span-1 flex flex-col gap-5">
-                <h3 className="text-slate-400 uppercase tracking-[0.15em] text-xs font-black border-l-3 border-emerald-500 pl-3">ACTIVE AIRCRAFT</h3>
-                <div className="p-6 bg-white/4 rounded-xl border border-white/8 hover:border-emerald-500/25 transition-all">
-                  <div className="text-2xl font-black text-white uppercase leading-tight" style={{ fontFamily: 'Orbitron' }}>KA-50</div>
-                  <div className="text-xs text-emerald-400/70 font-bold mb-5 tracking-[0.15em] uppercase">BLACK SHARK • ATTACK HELICOPTER</div>
-                  <div className="flex flex-col gap-4">
-                    <StatBar label="ARMOR" value={85} />
-                    <StatBar label="SPEED" value={70} />
-                    <StatBar label="FIREPOWER" value={90} />
-                    <StatBar label="AGILITY" value={55} />
+            <div className="flex-1 grid grid-cols-3 gap-8 min-h-0">
+              {/* Aircraft info & Selection Bay */}
+              <div className="col-span-1 flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar">
+                <h3 className="text-slate-400 uppercase tracking-[0.15em] text-xs font-black border-l-3 border-emerald-500 pl-3">ACTIVE COCKPIT</h3>
+                
+                {/* Helicopter Details Box */}
+                <div className="p-5 bg-white/4 rounded-xl border border-white/8">
+                  <div className="text-2xl font-black text-white uppercase leading-tight" style={{ fontFamily: 'Orbitron' }}>
+                    {activeTemplate.name}
                   </div>
+                  <div className="text-xs text-emerald-400/70 font-bold mb-4 tracking-[0.15em] uppercase">
+                    {activeTemplate.sub}
+                  </div>
+                  <div className="flex flex-col gap-3.5 mb-4">
+                    <StatBar label="ARMOR RATING" value={Math.min(100, activeTemplate.stats.armor + (maxHealthLevel - 1) * 10)} />
+                    <StatBar label="MAX ACCEL SPEED" value={activeTemplate.stats.speed} />
+                    <StatBar label="FIREPOWER THRESHOLD" value={Math.min(100, activeTemplate.stats.firepower + (fireRateLevel - 1) * 10)} />
+                    <StatBar label="AGILITY FLIGHT CONTROL" value={activeTemplate.stats.agility} />
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed pt-2.5 border-t border-white/5">
+                    {activeTemplate.desc}
+                  </p>
+                </div>
+
+                <h3 className="text-slate-400 uppercase tracking-[0.15em] text-xs font-black border-l-3 border-emerald-500 pl-3 mt-2">ENGINEERING BAY</h3>
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => { if(buyUpgrade('health')) audioManager.playUIClick(); }} className="w-full bg-white/4 border border-white/8 hover:border-emerald-500/50 p-3 rounded-lg flex justify-between items-center text-left transition-all group disabled:opacity-50" disabled={maxHealthLevel >= 10 || scrap < maxHealthLevel * 100}>
+                    <div>
+                      <div className="text-sm font-bold text-white uppercase tracking-wider">Reinforce Hull</div>
+                      <div className="text-[10px] text-slate-400 uppercase">Level {maxHealthLevel}/10</div>
+                    </div>
+                    <div className="text-right">
+                      {maxHealthLevel < 10 ? (
+                        <div className="text-emerald-400 font-bold">{maxHealthLevel * 100} ¢</div>
+                      ) : (
+                        <div className="text-slate-500 font-bold text-xs uppercase">MAXED</div>
+                      )}
+                    </div>
+                  </button>
+
+                  <button onClick={() => { if(buyUpgrade('fireRate')) audioManager.playUIClick(); }} className="w-full bg-white/4 border border-white/8 hover:border-emerald-500/50 p-3 rounded-lg flex justify-between items-center text-left transition-all group disabled:opacity-50" disabled={fireRateLevel >= 10 || scrap < fireRateLevel * 150}>
+                    <div>
+                      <div className="text-sm font-bold text-white uppercase tracking-wider">Weapon Linkage</div>
+                      <div className="text-[10px] text-slate-400 uppercase">Level {fireRateLevel}/10</div>
+                    </div>
+                    <div className="text-right">
+                      {fireRateLevel < 10 ? (
+                        <div className="text-emerald-400 font-bold">{fireRateLevel * 150} ¢</div>
+                      ) : (
+                        <div className="text-slate-500 font-bold text-xs uppercase">MAXED</div>
+                      )}
+                    </div>
+                  </button>
                 </div>
                 
-                <div className="p-5 bg-emerald-500/5 border border-emerald-500/15 rounded-xl">
-                  <p className="text-xs text-emerald-400/70 uppercase tracking-[0.12em] font-bold mb-1">Upgrade Status</p>
-                  <p className="text-sm text-slate-400 leading-relaxed">New engine components available for 1,500 credits.</p>
+                {/* Selection bay options */}
+                <h3 className="text-slate-400 uppercase tracking-[0.15em] text-xs font-black border-l-3 border-emerald-500 pl-3 mt-2">SELECTION BAY</h3>
+                <div className="flex flex-col gap-2.5">
+                  {(Object.keys(HELICOPTER_TEMPLATES) as Array<keyof typeof HELICOPTER_TEMPLATES>).map((key) => {
+                    const temp = HELICOPTER_TEMPLATES[key];
+                    const isSelected = selectedHelicopter === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => { selectHelicopter(key); audioManager.playUIClick(); }}
+                        className={`w-full py-3.5 px-5 rounded-lg border text-left transition-all duration-200 cursor-pointer flex justify-between items-center ${
+                          isSelected
+                            ? 'bg-emerald-600/15 border-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.2)]'
+                            : 'bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:border-white/12'
+                        }`}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-base font-black tracking-tight" style={{ fontFamily: 'Orbitron' }}>{temp.name}</span>
+                          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">{key === 'ka50' ? 'COAXIAL ROTORS' : 'SINGLE ROTOR'}</span>
+                        </div>
+                        {isSelected && (
+                          <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 rounded px-2.5 py-1 uppercase tracking-wider">ACTIVE</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               
-              {/* 3D preview area */}
-              <div className="col-span-2 flex items-center justify-center bg-black/30 rounded-2xl border border-white/5 relative overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-500/5 to-transparent"></div>
-                <div className="flex flex-col items-center">
-                  <div className="w-16 h-16 border-2 border-emerald-500/15 rounded-full flex items-center justify-center mb-4">
-                    <div className="w-8 h-8 border border-emerald-500/30 rounded-full animate-ping"></div>
+              {/* 3D preview area with full Canvas */}
+              <div className="col-span-2 flex flex-col bg-black/45 rounded-2xl border border-white/8 relative overflow-hidden h-full shadow-[inset_0_0_30px_rgba(0,0,0,0.85)]">
+                <div className="absolute top-4 left-4 z-10 flex flex-col gap-1 pointer-events-none">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shadow-[0_0_8px_#10b981]" />
+                    <span className="text-xs font-black uppercase text-emerald-400 tracking-[0.25em]" style={{ fontFamily: 'Orbitron' }}>NEURAL LINK ESTABLISHED</span>
                   </div>
-                  <p className="text-slate-500 uppercase tracking-[0.3em] text-sm font-bold">Neural Link Active</p>
-                  <p className="text-slate-600 text-xs mt-1.5 tracking-wider">Viewing Ka-50 Black Shark</p>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Slow-rotation 3D Telemetry active</span>
+                </div>
+                
+                {/* Real-time 3D rotating canvas preview */}
+                <div className="w-full h-full flex-1">
+                  <Canvas shadows camera={{ position: [0, 1.8, 5.2], fov: 40 }}>
+                    <ambientLight intensity={1.1} />
+                    <directionalLight position={[10, 12, 5]} intensity={1.6} castShadow />
+                    <pointLight position={[-5, 5, -5]} intensity={0.5} />
+                    <group position={[0, -0.2, 0]}>
+                      <HelicopterModel type={selectedHelicopter} isHangarPreview />
+                    </group>
+                  </Canvas>
+                </div>
+                
+                {/* Tech overlays */}
+                <div className="absolute bottom-4 right-4 z-10 flex gap-2">
+                  <div className="px-3.5 py-1.5 bg-slate-950/70 border border-white/5 rounded text-[10px] text-slate-400 font-bold uppercase tracking-wider">SECURE FRAME STORAGE</div>
+                  <div className="px-3.5 py-1.5 bg-emerald-950/40 border border-emerald-500/20 rounded text-[10px] text-emerald-400 font-bold uppercase tracking-wider animate-pulse">SYS_DIAG: 100% OK</div>
                 </div>
               </div>
             </div>

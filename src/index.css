@@ -100,19 +100,19 @@ body, html, #root {
 
 /* Text glow for important values */
 .text-glow-emerald {
-  text-shadow: 0 0 12px rgba(16, 185, 129, 0.5), 0 0 4px rgba(16, 185, 129, 0.3);
+  text-shadow: 0 0 5px rgba(16, 185, 129, 0.8), 0 0 1px rgba(16, 185, 129, 0.4);
 }
 .text-glow-red {
-  text-shadow: 0 0 12px rgba(239, 68, 68, 0.5), 0 0 4px rgba(239, 68, 68, 0.3);
+  text-shadow: 0 0 5px rgba(239, 68, 68, 0.8), 0 0 1px rgba(239, 68, 68, 0.4);
 }
 .text-glow-amber {
-  text-shadow: 0 0 12px rgba(245, 158, 11, 0.5), 0 0 4px rgba(245, 158, 11, 0.3);
+  text-shadow: 0 0 5px rgba(245, 158, 11, 0.8), 0 0 1px rgba(245, 158, 11, 0.4);
 }
 .text-glow-sky {
-  text-shadow: 0 0 12px rgba(56, 189, 248, 0.5), 0 0 4px rgba(56, 189, 248, 0.3);
+  text-shadow: 0 0 5px rgba(56, 189, 248, 0.8), 0 0 1px rgba(56, 189, 248, 0.4);
 }
 .text-glow-white {
-  text-shadow: 0 0 15px rgba(255, 255, 255, 0.3), 0 0 5px rgba(255, 255, 255, 0.15);
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.6), 0 0 1px rgba(255, 255, 255, 0.3);
 }
 
 /* Corner bracket decorations for panels */
@@ -177,3 +177,114 @@ body, html, #root {
   background-size: 20px 20px;
   animation: progress-stripes 0.6s linear infinite;
 }
+
+/* ═══════════════════════════════════════════
+   PREMIUM CYBER HUD REDESIGN UTILITIES
+   ═══════════════════════════════════════════ */
+
+/* Glassmorphic Panels with Slanted Gradients (Sleek Military Glass Cockpit Projection) */
+.hud-vector-emerald {
+  background: rgba(6, 20, 16, 0.22);
+  backdrop-filter: blur(1.5px);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  position: relative;
+}
+
+.hud-vector-sky {
+  background: rgba(6, 16, 26, 0.22);
+  backdrop-filter: blur(1.5px);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  position: relative;
+}
+
+.hud-vector-amber {
+  background: rgba(20, 12, 4, 0.22);
+  backdrop-filter: blur(1.5px);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  position: relative;
+}
+
+/* cyber-corners system (Thin Vector Ticks) */
+.cyber-corners::before,
+.cyber-corners::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.cyber-corners-emerald::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1.5px solid #10b981;
+  border-left: 1.5px solid #10b981;
+}
+.cyber-corners-emerald::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1.5px solid #10b981;
+  border-right: 1.5px solid #10b981;
+}
+
+.cyber-corners-sky::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1.5px solid #38bdf8;
+  border-left: 1.5px solid #38bdf8;
+}
+.cyber-corners-sky::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1.5px solid #38bdf8;
+  border-right: 1.5px solid #38bdf8;
+}
+
+.cyber-corners-amber::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1.5px solid #f59e0b;
+  border-left: 1.5px solid #f59e0b;
+}
+.cyber-corners-amber::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1.5px solid #f59e0b;
+  border-right: 1.5px solid #f59e0b;
+}
+
+/* Custom cyber progress fills */
+.cyber-progress-fill {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.15),
+    rgba(255, 255, 255, 0.15) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  box-shadow: 0 0 16px var(--glow-color, rgba(56, 189, 248, 0.5));
+}
+
+/* Radar scan modifications */
+.radar-grid-line {
+  border-color: rgba(16, 185, 129, 0.08);
+}
+
+/* Sub-panel layout slants */
+.slant-panel-r {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 16px) 100%, 0 100%);
+}
+.slant-panel-l {
+  clip-path: polygon(16px 0, 100% 0, 100% 100%, 0 100%);
+}
+.slant-panel-both {
+  clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 100%, 0 100%);
+}
+.skew-card {
+  transform: skewX(-4deg);
+}
+.skew-card-inner {
+  transform: skewX(4deg);
+}
+

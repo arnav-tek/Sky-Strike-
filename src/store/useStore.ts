@@ -66,6 +66,27 @@ interface GameStore {
   completeLevel: () => void;
   startNextLevel: () => void;
   startLevel: (level: number) => void;
+  returnToLevelSelect: () => void;
+
+  // Arcade power-ups
+  weaponPower: number;
+  upgradeWeapon: () => void;
+  resetWeaponPower: () => void;
+  shieldActive: boolean;
+  shieldTimer: number;
+  activateShield: (duration: number) => void;
+  tickPowerups: (delta: number) => void;
+
+  // Helicopter Selection
+  selectedHelicopter: 'ka50' | 'mi28' | 'ah64';
+  selectHelicopter: (type: 'ka50' | 'mi28' | 'ah64') => void;
+
+  // Progression & Meta-game
+  scrap: number;
+  addScrap: (amount: number) => void;
+  maxHealthLevel: number;
+  fireRateLevel: number;
+  buyUpgrade: (type: 'health' | 'fireRate') => boolean;
 }
 
 const getStoredLevel = () => {
@@ -74,6 +95,24 @@ const getStoredLevel = () => {
     return stored ? parseInt(stored, 10) : 1;
   } catch (e) {
     return 1;
+  }
+};
+
+const getStoredHelicopter = (): 'ka50' | 'mi28' | 'ah64' => {
+  try {
+    const stored = localStorage.getItem('skystrike_selected_helo');
+    return (stored === 'ka50' || stored === 'mi28' || stored === 'ah64') ? stored : 'ka50';
+  } catch (e) {
+    return 'ka50';
+  }
+};
+
+const getStoredNumber = (key: string, defaultValue: number) => {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? parseInt(stored, 10) : defaultValue;
+  } catch (e) {
+    return defaultValue;
   }
 };
 
@@ -89,6 +128,9 @@ export const useStore = create<GameStore>((set, get) => ({
   bossActive: false,
   bossHealthPercent: 100,
   bossName: "UNKNOWN",
+  weaponPower: 1,
+  shieldActive: false,
+  shieldTimer: 0,
   setBossState: (active, hp, name) => set((state) => ({ bossActive: active, bossHealthPercent: hp, bossName: name || state.bossName })),
   gameOver: false,
   cameraShake: 0,
@@ -136,8 +178,8 @@ export const useStore = create<GameStore>((set, get) => ({
   }),
 
   takeDamage: (amount) => set((state) => {
-    // Can't take damage while invulnerable, respawning, or game over
-    if (state.invulnerable || state.respawning || state.gameOver) return state;
+    // Can't take damage while invulnerable, shieldActive, respawning, or game over
+    if (state.invulnerable || state.shieldActive || state.respawning || state.gameOver) return state;
 
     const newHealth = Math.max(0, state.health - amount);
     
@@ -205,11 +247,21 @@ export const useStore = create<GameStore>((set, get) => ({
     return { missionTime: state.missionTime + delta };
   }),
   
-  addEnemyKill: () => set((state) => ({ enemiesDestroyed: state.enemiesDestroyed + 1 })),
+  addEnemyKill: () => set((state) => {
+    // Reward 1 scrap per kill, scaling slightly with combo
+    const scrapEarned = 1 + Math.floor(state.combo / 5);
+    const newScrap = state.scrap + scrapEarned;
+    try { localStorage.setItem('skystrike_scrap', newScrap.toString()); } catch (e) {}
+    
+    return { 
+      enemiesDestroyed: state.enemiesDestroyed + 1,
+      scrap: newScrap
+    };
+  }),
 
   // Respawn player with invulnerability
   respawnPlayer: () => set((state) => ({
-    health: 100,
+    health: 100 + (state.maxHealthLevel - 1) * 10,
     respawning: false,
     invulnerable: true,
     invulnerableTimer: 3.0, // 3 seconds of invulnerability
@@ -218,9 +270,9 @@ export const useStore = create<GameStore>((set, get) => ({
   })),
 
   // Return to main menu
-  returnToMenu: () => set({
+  returnToMenu: () => set((state) => ({
     gameState: 'menu',
-    health: 100,
+    health: 100 + (state.maxHealthLevel - 1) * 10,
     score: 0,
     levelStartScore: 0,
     combo: 1,
@@ -241,12 +293,15 @@ export const useStore = create<GameStore>((set, get) => ({
     currentLevel: 1,
     levelTransitioning: false,
     levelTimer: 0,
-  }),
+    weaponPower: 1,
+    shieldActive: false,
+    shieldTimer: 0,
+  })),
 
   // Full game reset (start mission from highest unlocked level)
   resetGame: () => set((state) => ({ 
     gameState: 'playing', 
-    health: 100, 
+    health: 100 + (state.maxHealthLevel - 1) * 10, 
     score: 0, 
     levelStartScore: 0,
     combo: 1, 
@@ -270,11 +325,14 @@ export const useStore = create<GameStore>((set, get) => ({
     currentLevel: state.maxUnlockedLevel,
     levelTransitioning: false,
     levelTimer: 0,
+    weaponPower: 1,
+    shieldActive: false,
+    shieldTimer: 0,
   })),
 
   startLevel: (level) => set((state) => ({ 
     gameState: 'playing', 
-    health: 100, 
+    health: 100 + (state.maxHealthLevel - 1) * 10, 
     score: 0, 
     levelStartScore: 0,
     combo: 1, 
@@ -334,7 +392,7 @@ export const useStore = create<GameStore>((set, get) => ({
     currentLevel: state.currentLevel + 1,
     levelTransitioning: false,
     levelTimer: 0,
-    health: 100,
+    health: 100 + (state.maxHealthLevel - 1) * 10,
     score: state.score, // Preserve score
     levelStartScore: state.score, // Set starting score for this level
     missiles: state.maxMissiles,
@@ -342,4 +400,85 @@ export const useStore = create<GameStore>((set, get) => ({
     invulnerableTimer: 3.0,
     cameraShake: 0,
   })),
+  returnToLevelSelect: () => set((state) => ({
+    gameState: 'level_select',
+    health: 100 + (state.maxHealthLevel - 1) * 10,
+    score: 0,
+    levelStartScore: 0,
+    combo: 1,
+    comboTimer: 0,
+    gameOver: false,
+    cameraShake: 0,
+    hitStop: 0,
+    paused: false,
+    missiles: 4,
+    lives: 3,
+    invulnerable: false,
+    invulnerableTimer: 0,
+    respawning: false,
+    enemiesDestroyed: 0,
+    highestCombo: 0,
+    missionTime: 0,
+    playerPos: [0, 5, 0],
+    levelTransitioning: false,
+    levelTimer: 0,
+    bossActive: false,
+    bossHealthPercent: 100,
+    weaponPower: 1,
+    shieldActive: false,
+    shieldTimer: 0,
+  })),
+  upgradeWeapon: () => set((state) => ({ weaponPower: Math.min(state.weaponPower + 1, 3) })),
+  resetWeaponPower: () => set({ weaponPower: 1 }),
+  activateShield: (duration) => set({ shieldActive: true, shieldTimer: duration }),
+  tickPowerups: (delta) => set((state) => {
+    if (!state.shieldActive) return state;
+    const nextTimer = state.shieldTimer - delta;
+    if (nextTimer <= 0) {
+      return { shieldActive: false, shieldTimer: 0 };
+    }
+    return { shieldTimer: nextTimer };
+  }),
+  selectedHelicopter: getStoredHelicopter(),
+  selectHelicopter: (type) => {
+    try {
+      localStorage.setItem('skystrike_selected_helo', type);
+    } catch (e) {
+      console.warn("Could not save selected helicopter");
+    }
+    set({ selectedHelicopter: type });
+  },
+
+  scrap: getStoredNumber('skystrike_scrap', 0),
+  maxHealthLevel: getStoredNumber('skystrike_health_level', 1),
+  fireRateLevel: getStoredNumber('skystrike_firerate_level', 1),
+  addScrap: (amount) => set((state) => {
+    const newScrap = state.scrap + amount;
+    try { localStorage.setItem('skystrike_scrap', newScrap.toString()); } catch (e) {}
+    return { scrap: newScrap };
+  }),
+  buyUpgrade: (type) => {
+    const state = get();
+    let cost = 0;
+    
+    if (type === 'health') {
+      cost = state.maxHealthLevel * 100;
+      if (state.maxHealthLevel >= 10 || state.scrap < cost) return false;
+      try { localStorage.setItem('skystrike_scrap', (state.scrap - cost).toString()); } catch (e) {}
+      try { localStorage.setItem('skystrike_health_level', (state.maxHealthLevel + 1).toString()); } catch (e) {}
+      set({ scrap: state.scrap - cost, maxHealthLevel: state.maxHealthLevel + 1 });
+      return true;
+    } 
+    
+    if (type === 'fireRate') {
+      cost = state.fireRateLevel * 150;
+      if (state.fireRateLevel >= 10 || state.scrap < cost) return false;
+      try { localStorage.setItem('skystrike_scrap', (state.scrap - cost).toString()); } catch (e) {}
+      try { localStorage.setItem('skystrike_firerate_level', (state.fireRateLevel + 1).toString()); } catch (e) {}
+      set({ scrap: state.scrap - cost, fireRateLevel: state.fireRateLevel + 1 });
+      return true;
+    }
+    
+    return false;
+  },
 }));

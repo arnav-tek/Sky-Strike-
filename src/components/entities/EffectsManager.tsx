@@ -16,7 +16,7 @@ export interface EffectData {
 }
 
 export const useEffects = () => {
-    return React.useState<EffectData[]>(() => Array.from({ length: 200 }, () => ({
+    return React.useRef<EffectData[]>(Array.from({ length: 200 }, () => ({
         active: false,
         position: new THREE.Vector3(),
         velocity: new THREE.Vector3(),
@@ -27,7 +27,7 @@ export const useEffects = () => {
         color: '#ffffff',
         gravity: 0,
         rotationSpeed: new THREE.Vector3()
-    })));
+    }))).current;
 };
 
 export const spawnEffect = (

@@ -4,6 +4,7 @@ import { spawnEffect } from './EffectsManager';
 import { spawnEnemyExplosion } from './ExplosionHelper';
 import { audioManager } from '../../audio/AudioManager';
 import * as THREE from 'three';
+import { HELICOPTER_TEMPLATES } from '../../constants';
 
 const SCORE_TABLE: Record<string, number> = {
     drone: 50, jeep: 75, scout: 100, helicopter: 150,
@@ -13,7 +14,72 @@ const SCORE_TABLE: Record<string, number> = {
     mega_missile_truck: 3500, blackshark_twin: 4000, blackshark_final: 10000
 };
 
-export default function CollisionManager({ bullets, missiles, enemies, enemyBullets, effects }: { bullets: any[], missiles: any[], enemies: any[], enemyBullets: any[], effects: any[] }) {
+export default function CollisionManager({ bullets, missiles, enemies, enemyBullets, effects, debris, powerups }: { bullets: any[], missiles: any[], enemies: any[], enemyBullets: any[], effects: any[], debris: any[], powerups: any[] }) {
+    
+    const spawnDebris = (pos: THREE.Vector3, enemyType: string) => {
+        const debrisCount = ['tank', 'mega_tank', 'gunship', 'heavy_gunship', 'missile_truck', 'mega_missile_truck'].includes(enemyType) ? 5 : 3;
+        
+        // Detect current level theme color to match dynamic wreckage paint!
+        const currentLevel = useStore.getState().currentLevel;
+        const theme = (currentLevel - 1) % 3;
+        let wreckageColor = '#52525b';
+        if (theme === 0) wreckageColor = Math.random() > 0.5 ? '#15803d' : '#27272a';
+        else if (theme === 1) wreckageColor = Math.random() > 0.5 ? '#b45309' : '#5c4033';
+        else if (theme === 2) wreckageColor = Math.random() > 0.5 ? '#e2e8f0' : '#475569';
+        
+        let spawned = 0;
+        for (let d of debris) {
+            if (!d.active) {
+                d.active = true;
+                d.position.copy(pos).add(new THREE.Vector3((Math.random() - 0.5) * 1.5, (Math.random() - 0.5) * 1.0, (Math.random() - 0.5) * 1.0));
+                
+                // Exploding vector arcs
+                d.velocity.set(
+                    (Math.random() - 0.5) * 12,
+                    Math.random() * 16 + 5,
+                    (Math.random() - 0.5) * 8
+                );
+                
+                d.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+                d.rotSpeed.set((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
+                d.bounces = 0;
+                d.color = wreckageColor;
+                d.scale = 0.7 + Math.random() * 0.5;
+                d.lifetime = 4.0;
+                
+                const isGroundVehicle = ['tank', 'armored_car', 'missile_truck', 'jeep', 'mega_tank', 'mega_missile_truck'].includes(enemyType);
+                const isAirborne = ['scout', 'helicopter', 'gunship', 'drone', 'heavy_gunship', 'blackshark', 'blackshark_twin', 'blackshark_final'].includes(enemyType);
+                
+                if (isGroundVehicle && spawned === 0) d.type = 'tire';
+                else if (isAirborne && spawned === 0) d.type = 'wing';
+                else d.type = 'chunk';
+                
+                spawned++;
+                if (spawned >= debrisCount) break;
+            }
+        }
+    };
+
+    const spawnPowerup = (pos: THREE.Vector3) => {
+        if (Math.random() > 0.18) return; // 18% drop rate
+        
+        const p = powerups.find((item: any) => !item.active);
+        if (p) {
+            p.active = true;
+            p.position.copy(pos);
+            p.lifetime = 8.0;
+            
+            const rand = Math.random();
+            if (rand < 0.6) {
+                p.type = 'weapon';
+            } else if (rand < 0.9) {
+                p.type = 'shield';
+            } else {
+                p.type = 'nuke';
+            }
+        }
+    };
+
     useFrame((_, delta) => {
         const state = useStore.getState();
         if (state.gameOver || state.gameState !== 'playing') return;
@@ -25,6 +91,15 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
         }
 
         useStore.getState().tickCombo(delta);
+
+        const selectedHelicopter = state.selectedHelicopter || 'ka50';
+        const template = HELICOPTER_TEMPLATES[selectedHelicopter] || HELICOPTER_TEMPLATES.ka50;
+        
+        // Armor multiplier: AH-64 (85 armor) => 1.0, Mi-28 (95 armor) => 0.5, Ka-50 (75 armor) => 1.5
+        const armorMult = (105 - template.stats.armor) / 20;
+
+        // Firepower multiplier: AH-64 (90 firepower) => 1.0
+        const firepowerMult = template.stats.firepower / 90;
 
         const playerPos = useStore.getState().playerPos;
         const takeDamage = useStore.getState().takeDamage;
@@ -93,7 +168,7 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
                     const zLimit = 8.0; // Wide Z impact for explosions
                     
                     if (distSq < missileExplosionRadius * missileExplosionRadius && Math.abs(dz) < zLimit) {
-                        e.health -= 50; // High AOE damage
+                        e.health -= 50 * firepowerMult; // High AOE damage
                         
                         if (e.health <= 0) {
                             e.active = false; 
@@ -103,6 +178,8 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
                             addScore(scoreAmt); 
                             audioManager.playEnemyDeath(e.type);
                             spawnEnemyExplosion(effects, e.position, e.type, 1.5);
+                            spawnDebris(e.position, e.type);
+                            spawnPowerup(e.position);
                             
                             const isBoss = ['blackshark', 'mega_tank', 'heavy_gunship', 'mega_missile_truck', 'blackshark_twin', 'blackshark_final'].includes(e.type);
                             if (isBoss) {
@@ -139,7 +216,7 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
 
                 if (distSq < radiusSum * radiusSum && Math.abs(dz) < zThreshold) {
                     b.active = false; 
-                    e.health -= 20; 
+                    e.health -= 20 * firepowerMult; 
                     
                     if (e.health <= 0) {
                         e.active = false; 
@@ -150,6 +227,8 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
                         
                         audioManager.playEnemyDeath(e.type);
                         spawnEnemyExplosion(effects, e.position, e.type, 1.0);
+                        spawnDebris(e.position, e.type);
+                        spawnPowerup(e.position);
                         
                         const isBoss = ['blackshark', 'mega_tank', 'heavy_gunship', 'mega_missile_truck', 'blackshark_twin', 'blackshark_final'].includes(e.type);
                         if (isBoss) {
@@ -179,18 +258,18 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
             }
         }
 
-        // ─── PLAYER DAMAGE (respects invulnerability) ───
+        // ─── PLAYER DAMAGE (respects energy shield & invulnerability) ───
 
         // Enemies hitting player (collision)
-        if (!isInvulnerable && !state.respawning && !state.gameOver) {
+        if (!isInvulnerable && !state.shieldActive && !state.respawning && !state.gameOver) {
             for (let i = 0; i < enemies.length; i++) {
                 let e = enemies[i];
                 if (e.active && _playerPos.distanceTo(e.position) < (playerRadius + enemyRadius)) {
                     const isBoss = ['blackshark', 'mega_tank', 'heavy_gunship', 'mega_missile_truck', 'blackshark_twin', 'blackshark_final'].includes(e.type);
                     if (isBoss) {
                         // Boss collision handling: deal heavy damage to player, normal damage to boss, trigger knockback
-                        takeDamage(40);
-                        e.health -= 150; // Boss takes some damage
+                        takeDamage(40 * armorMult);
+                        e.health -= 150 * firepowerMult; // Boss takes some damage
                         
                         if (e.health <= 0) {
                             e.active = false;
@@ -200,6 +279,7 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
                             addScore(scoreAmt);
                             audioManager.playEnemyDeath(e.type);
                             spawnEnemyExplosion(effects, e.position, e.type, 1.5);
+                            spawnDebris(e.position, e.type);
                             useStore.getState().completeLevel();
                         } else {
                             audioManager.playHit();
@@ -212,9 +292,10 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
                         // Regular enemy collision
                         e.active = false;
                         const damage = e.state === 'kamikaze' ? 40 : 20;
-                        takeDamage(damage);
+                        takeDamage(damage * armorMult);
                         audioManager.playEnemyDeath(e.type);
                         spawnEnemyExplosion(effects, e.position, e.type, 1.0);
+                        spawnDebris(e.position, e.type);
                         spawnEffect(effects, _playerPos, 'hit', 2.0, '#ffffff');
                         useStore.getState().addShake(e.state === 'kamikaze' ? 2.5 : 1.5);
                     }
@@ -226,18 +307,82 @@ export default function CollisionManager({ bullets, missiles, enemies, enemyBull
                 let b = enemyBullets[i];
                 if (b.active && _playerPos.distanceTo(b.position) < (bulletRadius + playerRadius)) {
                     b.active = false;
-                    takeDamage(8);
+                    takeDamage(8 * armorMult);
                     spawnEffect(effects, b.position, 'hit', 1.5, '#ffffff');
                     useStore.getState().addShake(0.5);
                 }
             }
         } else {
-            // While invulnerable, enemy bullets still get destroyed on contact but deal no damage
+            // While invulnerable or shielded, enemy bullets still get destroyed on contact but deal no damage
             for (let i = 0; i < enemyBullets.length; i++) {
                 let b = enemyBullets[i];
                 if (b.active && _playerPos.distanceTo(b.position) < (bulletRadius + playerRadius)) {
                     b.active = false;
                     spawnEffect(effects, b.position, 'hit', 0.5, '#60a5fa');
+                }
+            }
+            
+            // Regular enemies ramming player deflect or blow up
+            for (let i = 0; i < enemies.length; i++) {
+                let e = enemies[i];
+                if (e.active && _playerPos.distanceTo(e.position) < (playerRadius + enemyRadius)) {
+                    const isBoss = ['blackshark', 'mega_tank', 'heavy_gunship', 'mega_missile_truck', 'blackshark_twin', 'blackshark_final'].includes(e.type);
+                    if (!isBoss) {
+                        e.active = false;
+                        useStore.getState().addCombo();
+                        useStore.getState().addEnemyKill();
+                        const scoreAmt = SCORE_TABLE[e.type] || 100;
+                        addScore(scoreAmt);
+                        audioManager.playEnemyDeath(e.type);
+                        spawnEnemyExplosion(effects, e.position, e.type, 1.0);
+                        spawnDebris(e.position, e.type);
+                        useStore.getState().addShake(1.0);
+                    }
+                }
+            }
+        }
+
+        // ─── PLAYER POWERUP COLLECTION ───
+        for (let p of powerups) {
+            if (p.active && _playerPos.distanceTo(p.position) < (playerRadius + 1.2)) {
+                p.active = false;
+                
+                audioManager.playUIClick(); // Play visual/audio confirmation
+                spawnEffect(effects, p.position.clone(), 'hit', 2.0, '#ffffff');
+                
+                if (p.type === 'weapon') {
+                    useStore.getState().upgradeWeapon();
+                    spawnEffect(effects, _playerPos, 'explosion', 1.0, '#ef4444');
+                } else if (p.type === 'shield') {
+                    useStore.getState().activateShield(6.0); // 6 seconds shield deflection
+                    spawnEffect(effects, _playerPos, 'explosion', 1.0, '#06b6d4');
+                } else if (p.type === 'nuke') {
+                    // Trigger dynamic nuke flash shake
+                    useStore.getState().addShake(2.0);
+                    spawnEffect(effects, _playerPos, 'explosion_large', 6.0, '#a855f7');
+                    
+                    // Detonate active on-screen non-boss units
+                    for (let e of enemies) {
+                        if (e.active && e.position.x < playerPos[0] + 50) {
+                            const isBoss = ['blackshark', 'mega_tank', 'heavy_gunship', 'mega_missile_truck', 'blackshark_twin', 'blackshark_final'].includes(e.type);
+                            if (isBoss) {
+                                e.health -= 350; // Bosses take heavy chunk damage
+                                if (e.health <= 0) {
+                                    e.active = false;
+                                    useStore.getState().completeLevel();
+                                }
+                            } else {
+                                e.active = false;
+                                useStore.getState().addCombo();
+                                useStore.getState().addEnemyKill();
+                                const scoreAmt = SCORE_TABLE[e.type] || 100;
+                                addScore(scoreAmt);
+                                audioManager.playEnemyDeath(e.type);
+                                spawnEnemyExplosion(effects, e.position, e.type, 1.2);
+                                spawnDebris(e.position, e.type);
+                            }
+                        }
+                    }
                 }
             }
         }

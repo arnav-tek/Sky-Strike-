@@ -28,3 +28,25 @@ export const GAME_CONSTANTS = {
     }
   }
 };
+
+export const HELICOPTER_TEMPLATES = {
+  ka50: {
+    name: 'KA-50 BLACK SHARK',
+    sub: 'Contra-Rotating Coaxial Attack Helicopter',
+    stats: { armor: 75, speed: 85, firepower: 75, agility: 95 },
+    desc: 'Uniquely structured attack gunship utilizing two coaxial contra-rotating rotors. Extreme combat agility, sharp control profiles, and tactical black stealth frames.'
+  },
+  mi28: {
+    name: 'MI-28 HAVOC',
+    sub: 'Heavy Armored Air Combat Gunship',
+    stats: { armor: 95, speed: 55, firepower: 95, agility: 45 },
+    desc: 'Heavily protected tactical tank-buster carrying an enormous under-nose cannon. Incredible battlefield structural resistance and immense forward destructive payloads.'
+  },
+  ah64: {
+    name: 'AH-64 APACHE',
+    sub: 'Advanced Tactical Strike Support',
+    stats: { armor: 85, speed: 70, firepower: 90, agility: 55 },
+    desc: 'Standard multi-role tactical support fighter fitted with APG-78 radar dome systems. Exceptional weapon spread control and reliable structural stability.'
+  }
+};
+
